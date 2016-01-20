@@ -181,8 +181,8 @@ GENERRS := $(PERL) $(PROJECT_ROOT)/scripts/generrs
 # ----------------------------------------------------------------------
 
 # Flags used for all C source files
-GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS)
-CC_GENERAL_OPTS := $(GENERAL_OPTS) -Werror 
+GENERAL_OPTS := -O -Wall $(EXTRA_C_OPTS) -fno-stack-protector -fno-omit-frame-pointer
+CC_GENERAL_OPTS := $(GENERAL_OPTS) #-Werror 
 
 # Flags used for kernel C source files
 CC_KERNEL_OPTS := -g -DGEEKOS -I$(PROJECT_ROOT)/include
