@@ -121,6 +121,42 @@ void Init_VM(struct Boot_Info *bootInfo)
      * - Do not map a page at address 0; this will help trap
      *   null pointer references
      */
+    extern struct Page* g_pageList;
+    struct Page (*pageList)[NUM_PAGE_TABLE_ENTRIES] 
+    				= (struct Page (*)[NUM_PAGE_TABLE_ENTRIES])g_pageList;
+    int i, j = 0;
+    uint_t memSizeB = (bootInfo->memSizeKB) << 10;
+	pde_t* pde = 0;
+	pte_t* pte = 0;
+
+	pde = (pde_t*)Alloc_Page();
+	memset(pde,0,PAGE_SIZE);
+	// alloc ptable
+    for (i=0; i < PAGE_DIRECTORY_INDEX(memSizeB); i++) {
+		pte = (pte_t*)Alloc_Page();
+		memset(pte,0,PAGE_SIZE);
+		pde[i].pageTableBaseAddr = (uint_t)PAGE_ALLIGNED_ADDR(pte);
+		pde[i].present = 1;
+		pde[i].flags = 1;
+		Print ("pde : %x\n", pde[i]);
+
+		for(j=0; j < NUM_PAGE_TABLE_ENTRIES; j++) {
+			pageList[i][j].entry = &pte[j]; // ...
+			pte[j].pageBaseAddr = i*NUM_PAGE_TABLE_ENTRIES+j;
+			pte[j].present = 1;
+			pte[j].flags = 1;
+		  	//Print ("pde : %x\n", pde[1]);
+			//Print ("%x\n", pte[j]);
+		}
+	}
+	//Print ("%x\n", &pageList[0][1023]);
+	Enable_Paging(pde);
+
+	// iterate all page structure and regist to pt
+	//for (i=0; i < s_numPages; i++) {
+		//g_pageList[i].
+	//}
+
     TODO("Build initial kernel page directory and page tables");
 }
 

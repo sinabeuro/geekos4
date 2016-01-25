@@ -66,24 +66,24 @@ static void Add_Page_Range(ulong_t start, ulong_t end, int flags)
     KASSERT(start < end);
 
     for (addr = start; addr < end; addr += PAGE_SIZE) {
-	struct Page *page = Get_Page(addr);
+		struct Page *page = Get_Page(addr);
 
-	page->flags = flags;
+		page->flags = flags;
 
-	if (flags == PAGE_AVAIL) {
-	    /* Add the page to the freelist */
-	    Add_To_Back_Of_Page_List(&s_freeList, page);
+		if (flags == PAGE_AVAIL) {
+		    /* Add the page to the freelist */
+		    Add_To_Back_Of_Page_List(&s_freeList, page);
 
-	    /* Update free page count */
-	    ++g_freePageCount;
-	} else {
-	    Set_Next_In_Page_List(page, 0);
-	    Set_Prev_In_Page_List(page, 0);
-	}
+		    /* Update free page count */
+		    ++g_freePageCount;
+		} else {
+		    Set_Next_In_Page_List(page, 0);
+		    Set_Prev_In_Page_List(page, 0);
+		}
 
-	page->clock = 0;
-	page->vaddr = 0;
-	page->entry = 0;
+		page->clock = 0;
+		page->vaddr = 0;
+		page->entry = 0;
     }
 }
 
@@ -186,15 +186,15 @@ void* Alloc_Page(void)
 
     /* See if we have a free page */
     if (!Is_Page_List_Empty(&s_freeList)) {
-	/* Remove the first page on the freelist. */
-	page = Get_Front_Of_Page_List(&s_freeList);
-	KASSERT((page->flags & PAGE_ALLOCATED) == 0);
-	Remove_From_Front_Of_Page_List(&s_freeList);
+		/* Remove the first page on the freelist. */
+		page = Get_Front_Of_Page_List(&s_freeList);
+		KASSERT((page->flags & PAGE_ALLOCATED) == 0);
+		Remove_From_Front_Of_Page_List(&s_freeList);
 
-	/* Mark page as having been allocated. */
-	page->flags |= PAGE_ALLOCATED;
-	g_freePageCount--;
-	result = (void*) Get_Page_Address(page);
+		/* Mark page as having been allocated. */
+		page->flags |= PAGE_ALLOCATED;
+		g_freePageCount--;
+		result = (void*) Get_Page_Address(page);
     }
 
     End_Int_Atomic(iflag);
@@ -214,14 +214,14 @@ static struct Page *Find_Page_To_Page_Out()
     best = NULL;
 
     for (i=0; i < s_numPages; i++) {
-	if ((g_pageList[i].flags & PAGE_PAGEABLE) &&
-	    (g_pageList[i].flags & PAGE_ALLOCATED)) {
-	    if (!best) best = &g_pageList[i];
-	    curr = &g_pageList[i];
-	    if ((curr->clock < best->clock) && (curr->flags & PAGE_PAGEABLE)) {
-		best = curr;
-	    }
-	}
+		if ((g_pageList[i].flags & PAGE_PAGEABLE) &&
+		    (g_pageList[i].flags & PAGE_ALLOCATED)) {
+		    if (!best) best = &g_pageList[i];
+		    curr = &g_pageList[i];
+		    if ((curr->clock < best->clock) && (curr->flags & PAGE_PAGEABLE)) {
+			best = curr;
+		    }
+		}
     }
 
     return best;
@@ -249,60 +249,60 @@ void* Alloc_Pageable_Page(pte_t *entry, ulong_t vaddr)
 
     paddr = Alloc_Page();
     if (paddr != 0) {
-	page = Get_Page((ulong_t) paddr);
-	KASSERT((page->flags & PAGE_PAGEABLE) == 0);
+		page = Get_Page((ulong_t) paddr);
+		KASSERT((page->flags & PAGE_PAGEABLE) == 0);
     } else {
-	int pagefileIndex;
+		int pagefileIndex;
 
-        /* Select a page to steal from another process */
-	Debug("About to hunt for a page to page out\n");
-	page = Find_Page_To_Page_Out();
-	KASSERT(page->flags & PAGE_PAGEABLE);
-	paddr = (void*) Get_Page_Address(page);
-	Debug("Selected page at addr %p (age = %d)\n", paddr, page->clock);
+	        /* Select a page to steal from another process */
+		Debug("About to hunt for a page to page out\n");
+		page = Find_Page_To_Page_Out();
+		KASSERT(page->flags & PAGE_PAGEABLE);
+		paddr = (void*) Get_Page_Address(page);
+		Debug("Selected page at addr %p (age = %d)\n", paddr, page->clock);
 
-	/* Find a place on disk for it */
-	pagefileIndex = Find_Space_On_Paging_File();
-	if (pagefileIndex < 0)
-	    /* No space available in paging file. */
-	    goto done;
-	Debug("Free disk page at index %d\n", pagefileIndex);
+		/* Find a place on disk for it */
+		pagefileIndex = Find_Space_On_Paging_File();
+		if (pagefileIndex < 0)
+		    /* No space available in paging file. */
+		    goto done;
+		Debug("Free disk page at index %d\n", pagefileIndex);
 
-	/* Make the page temporarily unpageable (can't let another process steal it) */
-	page->flags &= ~(PAGE_PAGEABLE);
+		/* Make the page temporarily unpageable (can't let another process steal it) */
+		page->flags &= ~(PAGE_PAGEABLE);
 
-	/* Lock the page so it cannot be freed while we're writing */
-        page->flags |= PAGE_LOCKED;
+		/* Lock the page so it cannot be freed while we're writing */
+	        page->flags |= PAGE_LOCKED;
 
-	/* Write the page to disk. Interrupts are enabled, since the I/O may block. */
-	Debug("Writing physical frame %p to paging file at %d\n", paddr, pagefileIndex);
-	Enable_Interrupts();
-	Write_To_Paging_File(paddr, page->vaddr, pagefileIndex);
-	Disable_Interrupts();
+		/* Write the page to disk. Interrupts are enabled, since the I/O may block. */
+		Debug("Writing physical frame %p to paging file at %d\n", paddr, pagefileIndex);
+		Enable_Interrupts();
+		Write_To_Paging_File(paddr, page->vaddr, pagefileIndex);
+		Disable_Interrupts();
 
-        /* While we were writing got notification this page isn't even needed anymore */
-        if (page->flags & PAGE_ALLOCATED)
-        {
-           /* The page is still in use update its bookeping info */
-           /* Update page table to reflect the page being on disk */
-           page->entry->present = 0;
-           page->entry->kernelInfo = KINFO_PAGE_ON_DISK;
-           page->entry->pageBaseAddr = pagefileIndex; /* Remember where it is located! */
-        }
-        else
-        {
-           /* The page got freed, don't need bookeeping or it on disk */
-           Free_Space_On_Paging_File(pagefileIndex);
+	        /* While we were writing got notification this page isn't even needed anymore */
+	        if (page->flags & PAGE_ALLOCATED)
+	        {
+	           /* The page is still in use update its bookeping info */
+	           /* Update page table to reflect the page being on disk */
+	           page->entry->present = 0;
+	           page->entry->kernelInfo = KINFO_PAGE_ON_DISK;
+	           page->entry->pageBaseAddr = pagefileIndex; /* Remember where it is located! */
+	        }
+	        else
+	        {
+	           /* The page got freed, don't need bookeeping or it on disk */
+	           Free_Space_On_Paging_File(pagefileIndex);
 
-           /* Its still allocated though to us now */
-           page->flags |= PAGE_ALLOCATED;
-        }
+	           /* Its still allocated though to us now */
+	           page->flags |= PAGE_ALLOCATED;
+	        }
 
-        /* Unlock the page */
-        page->flags &= ~(PAGE_LOCKED);
+	        /* Unlock the page */
+	        page->flags &= ~(PAGE_LOCKED);
 
-	/* XXX - flush TLB should only flush the one page */
-	Flush_TLB();
+		/* XXX - flush TLB should only flush the one page */
+		Flush_TLB();
     }
 
     /* Fill in accounting information for page */

@@ -22,6 +22,7 @@ mouse: enabled=0
 private_colormap: enabled=0
 i440fxsupport: enabled=0
 #newharddrivesupport: enabled=1
+#clock: sync=slowdown, time0=local, rtc_sync=0
 
 # Uncomment this to write all bochs debugging messages to
 # bochs.out.  This produces a lot of output, but can be very
