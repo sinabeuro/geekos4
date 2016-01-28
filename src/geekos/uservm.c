@@ -18,6 +18,10 @@
 #include <geekos/vfs.h>
 #include <geekos/user.h>
 
+
+#define DEFAULT_USER_STACK_SIZE 8192
+#define USER_BASE_ADRR 0x80000000
+
 /* ----------------------------------------------------------------------
  * Private functions
  * ---------------------------------------------------------------------- */
@@ -76,6 +80,107 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
      * - Fill in initial stack pointer, argument block address,
      *   and code entry point fields in User_Context
      */
+	struct Segment_Descriptor* desc;
+	static void * virtSpace;
+	unsigned long virtSize;
+	unsigned short LDTSelector;
+	unsigned short codeSelector, dataSelector;
+	int i, j;
+	ulong_t maxva = 0;
+	unsigned numArgs;
+	ulong_t argBlockSize;
+	unsigned long stackPointerAddr;
+	ulong_t vaddr = 0;
+	void* paddr = 0;
+
+	Get_Argument_Block_Size(command, &numArgs, &argBlockSize);
+
+	/* Find maximum virtual address */
+	for (i = 0; i < exeFormat->numSegments; ++i) {
+	  struct Exe_Segment *segment = &exeFormat->segmentList[i];
+	  ulong_t topva = segment->startAddress + segment->sizeInMemory; 
+	  
+	  if (topva > maxva)
+		maxva = topva;
+	}
+	
+	/* setup some memory space for the program */
+	virtSize = Round_Up_To_Page(maxva);
+	stackPointerAddr = 0xFFFFFFFF;
+	//+ DEFAULT_USER_STACK_SIZE;	
+
+    extern struct Page* g_pageList;
+    				
+	pde_t* pde = 0;
+	pte_t* pte = 0;
+
+	// copy all of the mappings from the kernel mode page directory 
+	pde = (pde_t*)Alloc_Page();
+	memcpy(pde, Get_PDBR(), PAGE_SIZE);
+	
+	// alloc user page table(start from 0x80000000) 
+	pde = &pde[PAGE_DIRECTORY_INDEX(USER_BASE_ADRR)];
+    for (i=0; i<PAGE_DIRECTORY_INDEX(virtSize); i++) {
+		pte = (pte_t*)Alloc_Page();
+		memset(pte,0,PAGE_SIZE);
+		pde[i].pageTableBaseAddr = (uint_t)PAGE_ALLIGNED_ADDR(pte);
+		pde[i].present = 1;
+		pde[i].flags = VM_USER;
+
+		for(j=0; j < NUM_PAGE_TABLE_ENTRIES; j++){
+			vaddr = USER_BASE_ADRR + ((i*NUM_PAGE_TABLE_ENTRIES+j)<<PAGE_POWER);
+			paddr = Alloc_Pageable_Page(&pte[j], vaddr);
+			pte[j].pageBaseAddr = PAGE_ALLIGNED_ADDR(paddr); 
+			//memcpy(paddr, exeFileData + segment->offsetInFile, PAGE_SIZE);
+			pte[j].present = 1;
+			pte[j].flags = VM_USER;
+		}
+	}
+
+	Format_Argument_Block(stackPointerAddr, numArgs, stackPointerAddr, command);
+	
+	*pUserContext = (struct User_Context*)Malloc(sizeof(struct User_Context));
+	(*pUserContext)->memory = (char*)virtSpace;
+	(*pUserContext)->size = virtSize;
+	(*pUserContext)->entryAddr = exeFormat->entryAddr;
+	(*pUserContext)->stackPointerAddr = stackPointerAddr;
+	(*pUserContext)->argBlockAddr = stackPointerAddr;
+	(*pUserContext)->refCount = 0; // important
+
+	// setup LDT
+	// alloc LDT seg desc in GDT
+	desc = Allocate_Segment_Descriptor();
+	Init_LDT_Descriptor(
+					 desc,
+					 ((*pUserContext)->ldt), // base address
+					 2  // num pages
+					 );
+	LDTSelector = Selector(KERNEL_PRIVILEGE, true, Get_Descriptor_Index( desc )); //
+	(*pUserContext)->ldtDescriptor = desc;
+	(*pUserContext)->ldtSelector = LDTSelector;
+
+	desc = &((*pUserContext)->ldt)[0];
+	Init_Code_Segment_Descriptor(
+					 desc,
+					 (unsigned long)virtSpace, // base address
+					 (virtSize/PAGE_SIZE)+10,  // num pages
+					 USER_PRIVILEGE		   // privilege level (0 == kernel)
+					 );
+	codeSelector = Selector(USER_PRIVILEGE, false, 0);
+	(*pUserContext)->csSelector = codeSelector;
+
+	desc = &((*pUserContext)->ldt)[1];
+	Init_Data_Segment_Descriptor(
+					 desc,
+					 (unsigned long)virtSpace, // base address
+					 (virtSize/PAGE_SIZE)+10,  // num pages
+					 USER_PRIVILEGE		   // privilege level (0 == kernel)
+					 );
+	dataSelector = Selector(USER_PRIVILEGE, false, 1);
+	(*pUserContext)->dsSelector = dataSelector;	
+	
+	Print("virtSize : %d\n", PAGE_DIRECTORY_INDEX(USER_BASE_ADRR+(virtSize<<12)));
+     
     TODO("Load user program into address space");
 }
 
@@ -131,6 +236,7 @@ void Switch_To_Address_Space(struct User_Context *userContext)
      *   segments, switch to the process's LDT
      * - 
      */
+
     TODO("Switch_To_Address_Space() using paging");
 }
 

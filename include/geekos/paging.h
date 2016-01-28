@@ -19,6 +19,8 @@
 struct Page;
 struct User_Context;
 
+#define PAGING_IRQ 14
+
 #define NUM_PAGE_TABLE_ENTRIES	1024
 #define NUM_PAGE_DIR_ENTRIES	1024
 
@@ -37,6 +39,10 @@ struct User_Context;
 #define VM_READ    0	 /* Memory can be read (ignored for x86) */
 #define VM_EXEC    0	 /* Memory can be executed (ignored for x86) */
 
+// Block(or Sector) structure
+typedef struct {
+	char byte[512];
+} block_t;
 
 /*
  * Page directory entry datatype.

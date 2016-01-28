@@ -30,6 +30,9 @@
 /* ----------------------------------------------------------------------
  * Private functions/data
  * ---------------------------------------------------------------------- */
+static char* swapMap;
+static uint_t totalPage;
+struct Block_Device* dev;
 
 #define SECTORS_PER_PAGE (PAGE_SIZE / SECTOR_SIZE)
 
@@ -123,7 +126,7 @@ void Init_VM(struct Boot_Info *bootInfo)
      */
     extern struct Page* g_pageList;
     struct Page (*pageList)[NUM_PAGE_TABLE_ENTRIES] 
-    				= (struct Page (*)[NUM_PAGE_TABLE_ENTRIES])g_pageList;
+    				= (struct Page (*)[NUM_PAGE_TABLE_ENTRIES])Get_Page(0); // this equals &g_pageList
     int i, j = 0;
     uint_t memSizeB = (bootInfo->memSizeKB) << 10;
 	pde_t* pde = 0;
@@ -137,27 +140,23 @@ void Init_VM(struct Boot_Info *bootInfo)
 		memset(pte,0,PAGE_SIZE);
 		pde[i].pageTableBaseAddr = (uint_t)PAGE_ALLIGNED_ADDR(pte);
 		pde[i].present = 1;
-		pde[i].flags = 1;
+		pde[i].flags = VM_WRITE;
 		Print ("pde : %x\n", pde[i]);
 
 		for(j=0; j < NUM_PAGE_TABLE_ENTRIES; j++) {
 			pageList[i][j].entry = &pte[j]; // ...
 			pte[j].pageBaseAddr = i*NUM_PAGE_TABLE_ENTRIES+j;
 			pte[j].present = 1;
-			pte[j].flags = 1;
+			pte[j].flags = VM_WRITE;
 		  	//Print ("pde : %x\n", pde[1]);
 			//Print ("%x\n", pte[j]);
 		}
 	}
-	//Print ("%x\n", &pageList[0][1023]);
+
 	Enable_Paging(pde);
-
-	// iterate all page structure and regist to pt
-	//for (i=0; i < s_numPages; i++) {
-		//g_pageList[i].
-	//}
-
-    TODO("Build initial kernel page directory and page tables");
+	Install_Interrupt_Handler(PAGING_IRQ, Page_Fault_Handler);
+	
+    //TODO("Build initial kernel page directory and page tables");
 }
 
 /**
@@ -167,7 +166,13 @@ void Init_VM(struct Boot_Info *bootInfo)
  */
 void Init_Paging(void)
 {
-    TODO("Initialize paging file data structures");
+	struct Paging_Device *pagedev = Get_Paging_Device();
+	dev = pagedev->dev;
+	totalPage = (pagedev->numSectors)/SECTORS_PER_PAGE; 
+	swapMap = (char*)Malloc(totalPage);
+	memset(swapMap,0,totalPage);
+	
+	//TODO("Initialize paging file data structures");
 }
 
 /**
@@ -178,8 +183,18 @@ void Init_Paging(void)
  */
 int Find_Space_On_Paging_File(void)
 {
+	int i;
     KASSERT(!Interrupts_Enabled());
-    TODO("Find free page in paging file");
+    Disable_Interrupts();
+	for(i = 0; i < totalPage; i++){
+		if(swapMap[i] > 0){
+			Enable_Interrupts();
+			return i;
+		}
+	}
+    Enable_Interrupts();
+	return -1;
+    //TODO("Find free page in paging file");
 }
 
 /**
@@ -190,7 +205,11 @@ int Find_Space_On_Paging_File(void)
 void Free_Space_On_Paging_File(int pagefileIndex)
 {
     KASSERT(!Interrupts_Enabled());
-    TODO("Free page in paging file");
+    Disable_Interrupts();
+	swapMap[pagefileIndex] = 0;
+    Enable_Interrupts();
+
+    //TODO("Free page in paging file");
 }
 
 /**
@@ -203,9 +222,14 @@ void Free_Space_On_Paging_File(int pagefileIndex)
  */
 void Write_To_Paging_File(void *paddr, ulong_t vaddr, int pagefileIndex)
 {
-    struct Page *page = Get_Page((ulong_t) paddr);
+	int i;
+	block_t* block = (block_t*)paddr;
+	struct Page *page = Get_Page((ulong_t) paddr);
     KASSERT(!(page->flags & PAGE_PAGEABLE)); /* Page must be locked! */
-    TODO("Write page data to paging file");
+	for(i = 0; i < SECTORS_PER_PAGE; i++)
+		Block_Write(dev, pagefileIndex*SECTORS_PER_PAGE+i, &block[i]);
+	swapMap[pagefileIndex] = 1;
+    //TODO("Write page data to paging file");
 }
 
 /**
@@ -219,8 +243,13 @@ void Write_To_Paging_File(void *paddr, ulong_t vaddr, int pagefileIndex)
  */
 void Read_From_Paging_File(void *paddr, ulong_t vaddr, int pagefileIndex)
 {
+	int i;
+	block_t* block = (block_t*)paddr;
     struct Page *page = Get_Page((ulong_t) paddr);
     KASSERT(!(page->flags & PAGE_PAGEABLE)); /* Page must be locked! */
-    TODO("Read page data from paging file");
+	for(i = 0; i < SECTORS_PER_PAGE; i++)
+		Block_Read(dev, pagefileIndex*SECTORS_PER_PAGE+i, &block[i]);
+	Free_Space_On_Paging_File(pagefileIndex);
+    //TODO("Read page data from paging file");
 }
 

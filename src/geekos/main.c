@@ -108,5 +108,9 @@ static void Mount_Root_Filesystem(void)
 
 static void Spawn_Init_Process(void)
 {
-    TODO("Spawn the init process");
+	const char *program = "/c/shell.exe";
+	const char *command = "shell.exe";
+	struct Kernel_Thread **pThread;
+  	Join(Lookup_Thread(Spawn(program, command, pThread)));
+    //TODO("Spawn the init process");
 }

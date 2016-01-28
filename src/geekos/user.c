@@ -18,6 +18,7 @@
 #include <geekos/tss.h>
 #include <geekos/user.h>
 
+static int userdebug = 1;
 /*
  * This module contains common functions for implementation of user
  * mode processes.
@@ -98,6 +99,45 @@ int Spawn(const char *program, const char *command, struct Kernel_Thread **pThre
      * If all goes well, store the pointer to the new thread in
      * pThread and return 0.  Otherwise, return an error code.
      */
+
+ 	char *exeFileData = 0;
+	ulong_t exeFileLength;
+	struct Exe_Format exeFormat;
+	struct User_Context* pUserContext;
+
+	if (userdebug)
+	  {
+		Print("Reading %s...\n", program);
+	  }
+	
+	if (Read_Fully(program, (void**) &exeFileData, &exeFileLength) != 0)
+	  {
+		Print("Read_Fully failed to read %s from disk\n", program);
+		return -1;
+	  }
+
+	if (userdebug)
+	  {  
+		Print("Read_Fully OK\n");
+	  }
+	
+	if (Parse_ELF_Executable(exeFileData, exeFileLength, &exeFormat) != 0)
+	  {
+		Print("Parse_ELF_Executable failed\n");
+		return -1;
+	  }
+
+	if (userdebug)
+    { 
+      Print("Parse_ELF_Executable OK\n");
+    }	 
+
+	Load_User_Program(exeFileData, exeFileLength, &exeFormat, command,
+    (struct User_Context **)&pUserContext);
+
+	*pThread = Start_User_Thread(pUserContext, false);
+
+	return (*pThread)->pid;   
     TODO("Spawn a process by reading an executable from a filesystem");
 }
 
@@ -117,6 +157,8 @@ void Switch_To_User_Context(struct Kernel_Thread* kthread, struct Interrupt_Stat
      * the Set_Kernel_Stack_Pointer() and Switch_To_Address_Space()
      * functions.
      */
-    TODO("Switch to a new user address space, if necessary");
+    if(kthread->userContext == NULL)
+		return;
+    //TODO("Switch to a new user address space, if necessary");
 }
 

@@ -31,6 +31,34 @@
 int Parse_ELF_Executable(char *exeFileData, ulong_t exeFileLength,
     struct Exe_Format *exeFormat)
 {
-    TODO("Parse an ELF executable image");
+	int i = 0;
+	int j = 0;
+	struct Exe_Segment* segment;
+	elfHeader* eHeader = (elfHeader*)exeFileData;
+	programHeader* pheader = (programHeader*)(exeFileData + eHeader->phoff);
+	exeFormat->numSegments = eHeader->phnum;
+	exeFormat->entryAddr = eHeader->entry;
+	
+	//Print("\n *** Segment List *** \n\n");
+	for(; i < exeFormat->numSegments; i++)
+	{
+		segment = &exeFormat->segmentList[i];
+		segment->lengthInFile = pheader->fileSize;
+		segment->offsetInFile = pheader->offset;
+		segment->protFlags = pheader->flags;
+		segment->sizeInMemory = pheader->memSize;
+		segment->startAddress = pheader->vaddr;
+	 /*
+		Print("lengthInFile : %x\n", (int)(segment->lengthInFile));
+		Print("offsetInFile : %x\n", (int)(segment->offsetInFile));
+		Print("protFlags : %x\n", (int)(segment->protFlags));
+		Print("sizeInMemory : %x\n", (int)(segment->sizeInMemory));
+		Print("startAddress : %x\n\n", (int)(segment->startAddress));
+	 */
+		pheader = (programHeader*)((char*)pheader + eHeader->phentsize);
+	}
+	return 0;
+
+    //TODO("Parse an ELF executable image");
 }
 
