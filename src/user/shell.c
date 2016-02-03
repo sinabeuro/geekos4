@@ -53,7 +53,7 @@ int main(int argc, char **argv)
     char *command;
 
     /* Set attribute to gray on black. */
-    Print("\x1B[37m");
+	Print("\x1B[37m");
 
     while (true) {
 	/* Print shell prompt (bright cyan on black background) */

@@ -216,11 +216,11 @@ static struct Page *Find_Page_To_Page_Out()
     for (i=0; i < s_numPages; i++) {
 		if ((g_pageList[i].flags & PAGE_PAGEABLE) &&
 		    (g_pageList[i].flags & PAGE_ALLOCATED)) {
-		    if (!best) best = &g_pageList[i];
-		    curr = &g_pageList[i];
-		    if ((curr->clock < best->clock) && (curr->flags & PAGE_PAGEABLE)) {
-			best = curr;
-		    }
+			    if (!best) best = &g_pageList[i];
+			    curr = &g_pageList[i];
+			    if ((curr->clock < best->clock) && (curr->flags & PAGE_PAGEABLE)) {
+				best = curr;
+			    }
 		}
     }
 

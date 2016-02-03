@@ -46,7 +46,8 @@ static int Sys_Null(struct Interrupt_State* state)
  */
 static int Sys_Exit(struct Interrupt_State* state)
 {
-    TODO("Exit system call");
+	Exit(state->ebx);
+    //TODO("Exit system call");
 }
 
 /*
@@ -58,7 +59,15 @@ static int Sys_Exit(struct Interrupt_State* state)
  */
 static int Sys_PrintString(struct Interrupt_State* state)
 {
-    TODO("PrintString system call");
+   	char string[100];
+	int len = state->ecx;	
+	int i;
+	
+	Copy_From_User(string, state->ebx, len);
+
+	for(i = 0; i < len; i++)
+		Put_Char(*(string+i));
+	return 0;
 }
 
 /*
@@ -70,7 +79,8 @@ static int Sys_PrintString(struct Interrupt_State* state)
  */
 static int Sys_GetKey(struct Interrupt_State* state)
 {
-    TODO("GetKey system call");
+	return Wait_For_Key();
+    //TODO("GetKey system call");
 }
 
 /*
@@ -93,7 +103,12 @@ static int Sys_SetAttr(struct Interrupt_State* state)
  */
 static int Sys_GetCursor(struct Interrupt_State* state)
 {
-    TODO("GetCursor system call");
+	int row, col;
+	Get_Cursor(&row, &col);
+	Copy_To_User(state->ebx, &row, sizeof(int*));
+	Copy_To_User(state->ecx, &col, sizeof(int*));
+	return 0;
+    //TODO("GetCursor system call");
 }
 
 /*
@@ -119,7 +134,20 @@ static int Sys_PutCursor(struct Interrupt_State* state)
  */
 static int Sys_Spawn(struct Interrupt_State* state)
 {
-    TODO("Spawn system call");
+	char program[256] = {'\0',}; 
+	char command[256] = {'\0',};
+	int pid;
+	struct Kernel_Thread **pThread;
+	Copy_From_User(program, state->ebx, state->ecx);
+	Copy_From_User(command, state->edx, state->esi);
+	
+	Print("%s\n", program);
+	Print("%s\n", command);
+	Enable_Interrupts();
+	pid = Spawn(program, command, pThread);
+	Disable_Interrupts();
+	return pid;
+    //TODO("Spawn system call");
 }
 
 /*
@@ -131,7 +159,13 @@ static int Sys_Spawn(struct Interrupt_State* state)
  */
 static int Sys_Wait(struct Interrupt_State* state)
 {
-    TODO("Wait system call");
+	int exitcode;
+	Enable_Interrupts();
+	exitcode = Join(Lookup_Thread(state->ebx));
+	Disable_Interrupts();
+	return exitcode;
+
+    //TODO("Wait system call");
 }
 
 /*

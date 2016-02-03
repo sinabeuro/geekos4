@@ -11,16 +11,16 @@ floppya: 1_44=fd.img, status=inserted
 #floppya: 1_44=fd_aug.img, status=inserted
 
 ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
-ata0-master: type=disk, mode=flat, translation=auto, path="diskc.img", cylinders=40, heads=8, spt=64, biosdetect=auto, model="Generic 1234¡°
+ata0-master: type=disk, mode=flat, translation=auto, path="diskc.img", cylinders=40, heads=8, spt=63, biosdetect=auto, model="Generic 1234¡°
  
 log: ./bochs.out
-keyboard_serial_delay: 200
+#keyboard_serial_delay: 200
 #floppy_command_delay: 500
-vga_update_interval: 300000
+#vga_update_interval: 300000
 #ips:  1000000
 mouse: enabled=0
 private_colormap: enabled=0
-i440fxsupport: enabled=0
+#i440fxsupport: enabled=0
 #newharddrivesupport: enabled=1
 #clock: sync=slowdown, time0=local, rtc_sync=0
 
@@ -28,4 +28,4 @@ i440fxsupport: enabled=0
 # bochs.out.  This produces a lot of output, but can be very
 # useful for debugging the kernel.
 #debug: action=report
-display_library: sdl
+display_library: x, options="gui_debug"

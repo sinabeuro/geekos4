@@ -89,7 +89,7 @@ static void Print_Fault_Info(uint_t address, faultcode_t faultCode)
     /* Get the address that caused the page fault */
     address = Get_Page_Fault_Address();
     Debug("Page fault @%lx\n", address);
-
+	
     /* Get the fault code */
     faultCode = *((faultcode_t *) &(state->errorCode));
 
@@ -133,15 +133,15 @@ void Init_VM(struct Boot_Info *bootInfo)
 	pte_t* pte = 0;
 
 	pde = (pde_t*)Alloc_Page();
-	memset(pde,0,PAGE_SIZE);
+	memset(pde,'\0',PAGE_SIZE);
 	// alloc ptable
     for (i=0; i < PAGE_DIRECTORY_INDEX(memSizeB); i++) {
 		pte = (pte_t*)Alloc_Page();
-		memset(pte,0,PAGE_SIZE);
+		memset(pte,'\0',PAGE_SIZE);
 		pde[i].pageTableBaseAddr = (uint_t)PAGE_ALLIGNED_ADDR(pte);
 		pde[i].present = 1;
 		pde[i].flags = VM_WRITE;
-		Print ("pde : %x\n", pde[i]);
+		Print ("pde : %x\n", &pde[i]);
 
 		for(j=0; j < NUM_PAGE_TABLE_ENTRIES; j++) {
 			pageList[i][j].entry = &pte[j]; // ...

@@ -29,7 +29,7 @@ struct User_Context;
 
 #define PAGE_ALLIGNED_ADDR(x)   (((unsigned int) (x)) >> 12)
 #define PAGE_ADDR(x)   (PAGE_ALLIGNED_ADDR(x) << 12)
-
+#define PAGE_ADDR_BY_IDX(x, y) (((x) << 22) + ((y) << 12))
 /*
  * Bits for flags field of pde_t and pte_t.
  */

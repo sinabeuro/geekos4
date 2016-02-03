@@ -21,6 +21,8 @@
 #include <geekos/argblock.h>
 #include <geekos/user.h>
 
+extern void Load_LDTR(ushort_t LDTselector);
+
 /* ----------------------------------------------------------------------
  * Variables
  * ---------------------------------------------------------------------- */
@@ -171,6 +173,8 @@ void Switch_To_Address_Space(struct User_Context *userContext)
      * Hint: you will need to use the lldt assembly language instruction
      * to load the process's LDT by specifying its LDT selector.
      */
-    TODO("Switch to user address space using segmentation/LDT");
+	//Load_LDTR((userContext->ldtSelector));
+	Set_PDBR(userContext->pageDir);
+
 }
 

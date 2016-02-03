@@ -17,6 +17,8 @@
 #include <geekos/range.h>
 #include <geekos/vfs.h>
 #include <geekos/user.h>
+#include <geekos/segment.h>
+#include <geekos/gdt.h>
 
 
 #define DEFAULT_USER_STACK_SIZE 8192
@@ -30,6 +32,43 @@
 /* ----------------------------------------------------------------------
  * Public functions
  * ---------------------------------------------------------------------- */
+extern void Load_LDTR(ushort_t LDTselector);
+
+ulong_t dtob(ulong_t decimal){
+
+	if(decimal <= 1)
+		return decimal;
+		
+	return 10*dtob(decimal/2)+decimal%2;
+}
+
+void DisplayMemory(pde_t* pde)
+{
+	int i;
+	char binary[32];
+	pte_t* pte = 0;
+	Set_Current_Attr(ATTRIB(BLACK, AMBER|BRIGHT));
+	Print("Page Directory\n");
+	Set_Current_Attr(ATTRIB(BLACK, GRAY));	
+	Print("%10s\t%10s\n", "pde", "value" );
+	Print(	"%10x\t%10x\n", 
+			&pde[PAGE_DIRECTORY_INDEX(0xFFFFFFFF)], 
+			pde[PAGE_DIRECTORY_INDEX(0xFFFFFFFF)]);
+	Set_Current_Attr(ATTRIB(BLACK, AMBER|BRIGHT));
+	Print("Page Table\n");
+	Set_Current_Attr(ATTRIB(BLACK, GRAY));
+	Print("%4s\t%10s\t%10s\t%10s\t%10s\n", "idx", "pte addr", "pte value", "pf addr", "pf value" );
+	pte = pde[PAGE_DIRECTORY_INDEX(0xFFFFFFFF)].pageTableBaseAddr<<12;
+	for(i=1022; i<1024; i++)
+	{
+		Print(	"%10d\t%10x\t%10x\t%10x\t%10x\n",
+				i, 
+				&pte[i], 
+				pte[i], 
+				pte[i].pageBaseAddr<<12,
+				*(int*)(pte[i].pageBaseAddr<<12));
+	}
+}
 
 /*
  * Destroy a User_Context object, including all memory
@@ -81,11 +120,10 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
      *   and code entry point fields in User_Context
      */
 	struct Segment_Descriptor* desc;
-	static void * virtSpace;
 	unsigned long virtSize;
 	unsigned short LDTSelector;
 	unsigned short codeSelector, dataSelector;
-	int i, j;
+	int i, j, k;
 	ulong_t maxva = 0;
 	unsigned numArgs;
 	ulong_t argBlockSize;
@@ -106,46 +144,106 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 	
 	/* setup some memory space for the program */
 	virtSize = Round_Up_To_Page(maxva);
-	stackPointerAddr = 0xFFFFFFFF;
+	stackPointerAddr = PAGE_ADDR(0xFFFFFFFF);
 	//+ DEFAULT_USER_STACK_SIZE;	
 
     extern struct Page* g_pageList;
-    				
+
+    pde_t* base_pde = 0;
 	pde_t* pde = 0;
+	pte_t* base_pte = 0;
 	pte_t* pte = 0;
+	pte_t* test = 0;
 
 	// copy all of the mappings from the kernel mode page directory 
-	pde = (pde_t*)Alloc_Page();
-	memcpy(pde, Get_PDBR(), PAGE_SIZE);
+	base_pde = (pde_t*)Alloc_Page();
+	memset(base_pde,'\0',PAGE_SIZE);
+	memcpy(base_pde, Get_PDBR(), PAGE_SIZE/2); // very important
 	
-	// alloc user page table(start from 0x80000000) 
-	pde = &pde[PAGE_DIRECTORY_INDEX(USER_BASE_ADRR)];
-    for (i=0; i<PAGE_DIRECTORY_INDEX(virtSize); i++) {
-		pte = (pte_t*)Alloc_Page();
-		memset(pte,0,PAGE_SIZE);
-		pde[i].pageTableBaseAddr = (uint_t)PAGE_ALLIGNED_ADDR(pte);
-		pde[i].present = 1;
-		pde[i].flags = VM_USER;
+	// alloc user page dir entry(start from 0x80000000) 
+	for(i=0; i < exeFormat->numSegments; ++i){
+		struct Exe_Segment *segment = &exeFormat->segmentList[i];
+		ulong_t startAddress = USER_BASE_ADRR + segment->startAddress;
+		ulong_t offsetInFile = segment->offsetInFile;	
+		Print("%x\n", *(int*)(exeFileData + offsetInFile));
+	    Print("SA : %x, Offset, %x\n", startAddress, offsetInFile);
+		pde = &base_pde[PAGE_DIRECTORY_INDEX(startAddress)];
+		Print("pdir idx : %x\n", PAGE_DIRECTORY_INDEX(startAddress));	
+		// alloc page table entry
+	    for(j=0; j<=PAGE_DIRECTORY_INDEX(segment->lengthInFile); j++) 
+	    {
+	    	if(pde[j].pageTableBaseAddr == '\0')
+	    	{
+	    		Print("PT NOT EXIST.\n");
+				base_pte = (pte_t*)Alloc_Page();
+			 	memset(base_pte,'\0',PAGE_SIZE);
+			}
+			else
+			{
+				base_pte = pde[j].pageTableBaseAddr<<12;
+			}
+			
+			pde[j].pageTableBaseAddr = (uint_t)PAGE_ALLIGNED_ADDR(base_pte);
+			pde[j].present = 1;
+			pde[j].flags = VM_USER | VM_WRITE;
 
-		for(j=0; j < NUM_PAGE_TABLE_ENTRIES; j++){
-			vaddr = USER_BASE_ADRR + ((i*NUM_PAGE_TABLE_ENTRIES+j)<<PAGE_POWER);
-			paddr = Alloc_Pageable_Page(&pte[j], vaddr);
-			pte[j].pageBaseAddr = PAGE_ALLIGNED_ADDR(paddr); 
-			//memcpy(paddr, exeFileData + segment->offsetInFile, PAGE_SIZE);
-			pte[j].present = 1;
-			pte[j].flags = VM_USER;
+			pte = &base_pte[PAGE_TABLE_INDEX(startAddress)];
+			for(k=0;
+				k <= PAGE_TABLE_INDEX(segment->lengthInFile); k++)
+			{
+				vaddr = PAGE_ADDR(startAddress + PAGE_ADDR_BY_IDX(j, k));
+				paddr = Alloc_Pageable_Page(&pte[k], vaddr);
+				pte[k].pageBaseAddr = PAGE_ALLIGNED_ADDR(paddr); 
+				memcpy(paddr,
+					   exeFileData + PAGE_ADDR(segment->offsetInFile + PAGE_ADDR_BY_IDX(j, k)),
+					   PAGE_SIZE);
+				Print(	"VA : %x, PA : %x, Data : %x, Offset : %x\n", vaddr, paddr,
+						*(int*)paddr,
+						PAGE_ADDR(segment->offsetInFile + PAGE_ADDR_BY_IDX(j, k))
+						);
+				test = ((pte_t*)((int)(base_pde[PAGE_DIRECTORY_INDEX(startAddress)].pageTableBaseAddr)<<12));	
+				pte[k].present = 1;
+				pte[k].flags = VM_USER | VM_WRITE;
+				Print(	"ENRTY : %x\n", test[k]);	
+			}
 		}
 	}
 
-	Format_Argument_Block(stackPointerAddr, numArgs, stackPointerAddr, command);
-	
+	// alloc stack..
+	j = PAGE_DIRECTORY_INDEX(stackPointerAddr);
+	pde = &base_pde[j];
+	pte = (pte_t*)Alloc_Page();
+	memset(pte,0,PAGE_SIZE);
+	pde->pageTableBaseAddr = (uint_t)PAGE_ALLIGNED_ADDR(pte);
+	pde->present = 1;
+	pde->flags = VM_USER | VM_WRITE;
+
+	// support up to 4MB
+	for(k = NUM_PAGE_TABLE_ENTRIES-PAGE_TABLE_INDEX(DEFAULT_USER_STACK_SIZE + argBlockSize)-1; 
+		k < NUM_PAGE_TABLE_ENTRIES; k++){
+		vaddr = PAGE_ADDR_BY_IDX(j, k);
+		paddr = Alloc_Pageable_Page(&pte[k], vaddr);
+		pte[k].pageBaseAddr = PAGE_ALLIGNED_ADDR(paddr);    
+		pte[k].present = 1;
+		pte[k].flags = VM_USER | VM_WRITE;
+		Print("stack VA : %x\n", vaddr);
+	}
+
+	stackPointerAddr -= USER_BASE_ADRR; // this means virtual(logical) addr
+	Format_Argument_Block(	paddr, numArgs, // user addr?
+							stackPointerAddr, command); 
+	//for(i =0; i < 10; i++)
+	//	Print("arg block data : %x\n", *(int*)(paddr+4*i));
+
 	*pUserContext = (struct User_Context*)Malloc(sizeof(struct User_Context));
-	(*pUserContext)->memory = (char*)virtSpace;
+	(*pUserContext)->memory = (char*)NULL; // i dont know..
 	(*pUserContext)->size = virtSize;
 	(*pUserContext)->entryAddr = exeFormat->entryAddr;
 	(*pUserContext)->stackPointerAddr = stackPointerAddr;
-	(*pUserContext)->argBlockAddr = stackPointerAddr;
+	(*pUserContext)->argBlockAddr = stackPointerAddr; // just start from stack pointer
 	(*pUserContext)->refCount = 0; // important
+	(*pUserContext)->pageDir = base_pde; // important
+
 
 	// setup LDT
 	// alloc LDT seg desc in GDT
@@ -162,8 +260,8 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 	desc = &((*pUserContext)->ldt)[0];
 	Init_Code_Segment_Descriptor(
 					 desc,
-					 (unsigned long)virtSpace, // base address
-					 (virtSize/PAGE_SIZE)+10,  // num pages
+					 (unsigned long)USER_BASE_ADRR, // base address
+					 (USER_BASE_ADRR/PAGE_SIZE),  // need to modify
 					 USER_PRIVILEGE		   // privilege level (0 == kernel)
 					 );
 	codeSelector = Selector(USER_PRIVILEGE, false, 0);
@@ -172,16 +270,17 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 	desc = &((*pUserContext)->ldt)[1];
 	Init_Data_Segment_Descriptor(
 					 desc,
-					 (unsigned long)virtSpace, // base address
-					 (virtSize/PAGE_SIZE)+10,  // num pages
+					 (unsigned long)USER_BASE_ADRR, // base address
+					 (USER_BASE_ADRR/PAGE_SIZE),  // num pages
 					 USER_PRIVILEGE		   // privilege level (0 == kernel)
 					 );
 	dataSelector = Selector(USER_PRIVILEGE, false, 1);
 	(*pUserContext)->dsSelector = dataSelector;	
 	
-	Print("virtSize : %d\n", PAGE_DIRECTORY_INDEX(USER_BASE_ADRR+(virtSize<<12)));
-     
-    TODO("Load user program into address space");
+	Print("virtSize : %d\n", exeFormat->entryAddr);
+	//DisplayMemory(base_pde);
+	//TODO("");
+	return 0;
 }
 
 /*
@@ -208,7 +307,12 @@ bool Copy_From_User(void* destInKernel, ulong_t srcInUser, ulong_t numBytes)
      * interrupts are disabled; because no other process can run,
      * the page is guaranteed not to be stolen.
      */
-    TODO("Copy user data to kernel buffer");
+    //Print("Source address : %x\n", srcInUser); 
+    //KASSERT(PAGE_ADDR(USER_BASE_ADRR + srcInUser))
+    struct User_Context* userContext = g_currentThread->userContext;
+    memcpy(destInKernel, (void*)(USER_BASE_ADRR + srcInUser), numBytes);
+    return true;    
+    //TODO("Copy user data to kernel buffer");
 }
 
 /*
@@ -223,7 +327,13 @@ bool Copy_To_User(ulong_t destInUser, void* srcInKernel, ulong_t numBytes)
      * - Also, make sure the memory is mapped into the user
      *   address space with write permission enabled
      */
-    TODO("Copy kernel data to user buffer");
+	struct User_Context* userContext = g_currentThread->userContext;
+	
+	memcpy((void*)(USER_BASE_ADRR + destInUser), srcInKernel, numBytes);
+	
+	return true;
+     
+    //TODO("Copy kernel data to user buffer");
 }
 
 /*
@@ -237,7 +347,12 @@ void Switch_To_Address_Space(struct User_Context *userContext)
      * - 
      */
 
-    TODO("Switch_To_Address_Space() using paging");
+	Load_LDTR(userContext->ldtSelector);
+	Set_PDBR(userContext->pageDir);
+	
+	//Print("0x1000: %x\n", *(int*)(0x34000));
+
+	
 }
 
 
