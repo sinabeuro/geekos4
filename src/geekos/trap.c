@@ -68,4 +68,6 @@ void Init_Traps(void)
     Install_Interrupt_Handler(12, &GPF_Handler);  /* stack exception */
     Install_Interrupt_Handler(13, &GPF_Handler);  /* general protection fault */
     Install_Interrupt_Handler(SYSCALL_INT, &Syscall_Handler);
+
+    
 }

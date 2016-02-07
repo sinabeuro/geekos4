@@ -31,7 +31,7 @@
 00000000000i[      ]   SB16 support: no
 00000000000i[      ]   USB support: no
 00000000000i[      ]   VGA extension support: vbe
-00000000000i[MEM0  ] allocated memory at 0xb5407008. after alignment, vector=0xb5408000
+00000000000i[MEM0  ] allocated memory at 0xb548e008. after alignment, vector=0xb548f000
 00000000000i[MEM0  ] 8.00MB
 00000000000i[MEM0  ] mem block size = 0x00100000, blocks=8
 00000000000i[MEM0  ] rom at 0xfffe0000/131072 ('/usr/share/bochs/BIOS-bochs-latest')
@@ -41,14 +41,14 @@
 00000000000i[DEV   ] PIIX3 PCI-to-ISA bridge present at device 1, function 0
 00000000000i[PLUGIN] init_dev of 'cmos' plugin device by virtual method
 00000000000i[CMOS  ] Using local time for initial clock
-00000000000i[CMOS  ] Setting initial clock to: Thu Feb  4 00:09:14 2016 (time0=1454512154)
+00000000000i[CMOS  ] Setting initial clock to: Sun Feb  7 19:10:02 2016 (time0=1454839802)
 00000000000i[PLUGIN] init_dev of 'dma' plugin device by virtual method
 00000000000i[DMA   ] channel 4 used by cascade
 00000000000i[PLUGIN] init_dev of 'pic' plugin device by virtual method
 00000000000i[PLUGIN] init_dev of 'pit' plugin device by virtual method
 00000000000i[PLUGIN] init_dev of 'vga' plugin device by virtual method
 00000000000i[MEM0  ] Register memory access handlers: 0x0000000a0000 - 0x0000000bffff
-00000000000i[VGA   ] interval=200000
+00000000000i[VGA   ] interval=16666
 00000000000i[MEM0  ] Register memory access handlers: 0x0000e0000000 - 0x0000e0ffffff
 00000000000i[BXVGA ] VBE Bochs Display Extension Enabled
 00000000000i[XGUI  ] test_alloc_colors: 16 colors available out of 16 colors tried
@@ -143,7 +143,7 @@
 00000447958i[BXVGA ] VBE known Display Interface b0c0
 00000447990i[BXVGA ] VBE known Display Interface b0c5
 00000450915i[VBIOS ] VBE Bios $Id: vbe.c,v 1.64 2011/07/19 18:25:05 vruppert Exp $
-00000606028i[XGUI  ] charmap update. Font Height is 16
+00000639928i[XGUI  ] charmap update. Font Height is 16
 00000771031i[BIOS  ] Starting rombios32
 00000771469i[BIOS  ] Shutdown flag 0
 00000772041i[BIOS  ] ram_size=0x00800000
@@ -180,25 +180,5 @@
 00001860265i[BIOS  ] ata0-0: PCHS=40/8/63 translation=none LCHS=40/8/63
 00005740525i[BIOS  ] IDE time out
 00017995642i[BIOS  ] Booting from 0000:7c00
-00035143631i[FLOPPY] controller reset in software
-00255904000p[XGUI  ] >>PANIC<< POWER button turned off.
-00255904000i[CPU0  ] CPU is in protected mode (active)
-00255904000i[CPU0  ] CS.mode = 32 bit
-00255904000i[CPU0  ] SS.mode = 32 bit
-00255904000i[CPU0  ] EFER   = 0x00000000
-00255904000i[CPU0  ] | EAX=00000000  EBX=00000000  ECX=00025340  EDX=00000000
-00255904000i[CPU0  ] | ESP=00005fb4  EBP=00005fb4  ESI=00000000  EDI=00000000
-00255904000i[CPU0  ] | IOPL=0 id vip vif ac vm rf nt of df if tf sf zf AF pf cf
-00255904000i[CPU0  ] | SEG sltr(index|ti|rpl)     base    limit G D
-00255904000i[CPU0  ] |  CS:0008( 0001| 0|  0) 00000000 ffffffff 1 1
-00255904000i[CPU0  ] |  DS:0010( 0002| 0|  0) 00000000 ffffffff 1 1
-00255904000i[CPU0  ] |  SS:0010( 0002| 0|  0) 00000000 ffffffff 1 1
-00255904000i[CPU0  ] |  ES:0010( 0002| 0|  0) 00000000 ffffffff 1 1
-00255904000i[CPU0  ] |  FS:0000( 0000| 0|  0) 00000000 00000000 0 0
-00255904000i[CPU0  ] |  GS:0000( 0000| 0|  0) 00000000 00000000 0 0
-00255904000i[CPU0  ] | EIP=00015704 (00015704)
-00255904000i[CPU0  ] | CR0=0xe0000011 CR2=0x00000000
-00255904000i[CPU0  ] | CR3=0x0003c000 CR4=0x00000000
-00255904000i[CMOS  ] Last time is 1454512217 (Thu Feb  4 00:10:17 2016)
-00255904000i[XGUI  ] Exit
-00255904000i[SIM   ] quit_sim called with exit code 1
+00035143645i[FLOPPY] controller reset in software
+00771977298i[XGUI  ] Mouse capture off

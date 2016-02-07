@@ -39,6 +39,8 @@ struct User_Context;
 #define VM_READ    0	 /* Memory can be read (ignored for x86) */
 #define VM_EXEC    0	 /* Memory can be executed (ignored for x86) */
 
+#define USER_BASE_ADRR 0x80000000
+
 // Block(or Sector) structure
 typedef struct {
 	char byte[512];

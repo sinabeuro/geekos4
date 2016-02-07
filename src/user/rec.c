@@ -10,7 +10,10 @@ void Recurse(int x)
 {
     int stuff[512];
 
-    if (x == 0) return;
+    if (x == 0){
+		Print("done.\n");
+		return;
+	}
 
     stuff[0] = x;
     Print("calling Recurse %d\n", x);

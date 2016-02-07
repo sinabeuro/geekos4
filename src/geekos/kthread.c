@@ -487,17 +487,20 @@ void Init_Scheduler(void)
     g_currentThread = mainThread;
     Add_To_Back_Of_All_Thread_List(&s_allThreadList, mainThread);
 
+
     /*
      * Create the idle thread.
      */
     /*Print("starting idle thread\n");*/
     Start_Kernel_Thread(Idle, 0, PRIORITY_IDLE, true);
 
+
     /*
      * Create the reaper thread.
      */
     /*Print("starting reaper thread\n");*/
     Start_Kernel_Thread(Reaper, 0, PRIORITY_NORMAL, true);
+
 }
 
 /*
@@ -577,9 +580,19 @@ void Make_Runnable(struct Kernel_Thread* kthread)
 
     { int currentQ = kthread->currentReadyQueue;
       KASSERT(currentQ >= 0 && currentQ < MAX_QUEUE_LEVEL);
+
+	  /* If the process is blocked, the priority level will increase by one level */
+      if(kthread->blocked == true && currentQ > 0)
+      	kthread->currentReadyQueue--;
+
+	  /* Prevent to idle process move out queue */
+	  if(kthread->priority == PRIORITY_IDLE)
+	  	kthread->currentReadyQueue = MAX_QUEUE_LEVEL - 1 ;
+        	
       kthread->blocked = false;
-      Enqueue_Thread(&s_runQueue[currentQ], kthread);
+      Enqueue_Thread(&s_runQueue[kthread->currentReadyQueue], kthread);
     }
+
 }
 
 /*

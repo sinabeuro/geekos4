@@ -251,10 +251,10 @@ void* Alloc_Pageable_Page(pte_t *entry, ulong_t vaddr)
     if (paddr != 0) {
 		page = Get_Page((ulong_t) paddr);
 		KASSERT((page->flags & PAGE_PAGEABLE) == 0);
-    } else {
+    } else { // there is no free page
 		int pagefileIndex;
 
-	        /* Select a page to steal from another process */
+	    /* Select a page to steal from another process */
 		Debug("About to hunt for a page to page out\n");
 		page = Find_Page_To_Page_Out();
 		KASSERT(page->flags & PAGE_PAGEABLE);
@@ -272,7 +272,7 @@ void* Alloc_Pageable_Page(pte_t *entry, ulong_t vaddr)
 		page->flags &= ~(PAGE_PAGEABLE);
 
 		/* Lock the page so it cannot be freed while we're writing */
-	        page->flags |= PAGE_LOCKED;
+        page->flags |= PAGE_LOCKED;
 
 		/* Write the page to disk. Interrupts are enabled, since the I/O may block. */
 		Debug("Writing physical frame %p to paging file at %d\n", paddr, pagefileIndex);
@@ -289,7 +289,7 @@ void* Alloc_Pageable_Page(pte_t *entry, ulong_t vaddr)
 	           page->entry->kernelInfo = KINFO_PAGE_ON_DISK;
 	           page->entry->pageBaseAddr = pagefileIndex; /* Remember where it is located! */
 	        }
-	        else
+	        else // if ohter thread die
 	        {
 	           /* The page got freed, don't need bookeeping or it on disk */
 	           Free_Space_On_Paging_File(pagefileIndex);

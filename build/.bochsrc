@@ -16,7 +16,8 @@ ata0-master: type=disk, mode=flat, translation=auto, path="diskc.img", cylinders
 log: ./bochs.out
 #keyboard_serial_delay: 200
 #floppy_command_delay: 500
-#vga_update_interval: 300000
+#vga_update_interval: 300000 ->
+vga: extension=vbe, update_freq=60
 #ips:  1000000
 mouse: enabled=0
 private_colormap: enabled=0

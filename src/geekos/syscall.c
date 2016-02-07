@@ -59,15 +59,14 @@ static int Sys_Exit(struct Interrupt_State* state)
  */
 static int Sys_PrintString(struct Interrupt_State* state)
 {
-   	char string[100];
+   	char string[100] = {'\0'};
 	int len = state->ecx;	
 	int i;
-	
+
 	Copy_From_User(string, state->ebx, len);
 
-	for(i = 0; i < len; i++)
-		Put_Char(*(string+i));
-	return 0;
+ 	Print(string);
+ 	return 0;
 }
 
 /*

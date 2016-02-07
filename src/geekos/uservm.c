@@ -22,7 +22,6 @@
 
 
 #define DEFAULT_USER_STACK_SIZE 8192
-#define USER_BASE_ADRR 0x80000000
 
 /* ----------------------------------------------------------------------
  * Private functions
@@ -84,7 +83,34 @@ void Destroy_User_Context(struct User_Context* context)
      * - Free semaphores, files, and other resources used
      *   by the process
      */
-    TODO("Destroy User_Context data structure after process exits");
+
+    // this function called in kernel mode
+    int i, j;
+    pde_t* pde = Get_PDBR();
+	pte_t* pte;
+	Disable_Interrupts();
+	for(i=0; i < NUM_PAGE_DIR_ENTRIES; ++i)
+	{
+		if(pde[i].pageTableBaseAddr == '\0')
+			continue;
+		pte = pde[i].pageTableBaseAddr<<12;
+		for(j=0; j < NUM_PAGE_TABLE_ENTRIES; ++j)
+		{
+			if(pte[j].pageBaseAddr == '\0')
+				continue;
+			Free_Page(pte[j].pageBaseAddr<< 12);
+		}
+		Free_Page(pte);		
+	}
+	Free_Page(pde);	
+	Enable_Interrupts();
+
+    Free_Segment_Descriptor(context->ldtDescriptor);
+    Free(context->memory);
+    Free(context);
+	return 0; 
+
+    //TODO("Destroy User_Context data structure after process exits");
 }
 
 /*
@@ -191,7 +217,7 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 			for(k=0;
 				k <= PAGE_TABLE_INDEX(segment->lengthInFile); k++)
 			{
-				vaddr = PAGE_ADDR(startAddress + PAGE_ADDR_BY_IDX(j, k));
+				vaddr = PAGE_ADDR(startAddress - USER_BASE_ADRR + PAGE_ADDR_BY_IDX(j, k)); // vaddr?
 				paddr = Alloc_Pageable_Page(&pte[k], vaddr);
 				pte[k].pageBaseAddr = PAGE_ALLIGNED_ADDR(paddr); 
 				memcpy(paddr,
@@ -201,10 +227,8 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 						*(int*)paddr,
 						PAGE_ADDR(segment->offsetInFile + PAGE_ADDR_BY_IDX(j, k))
 						);
-				test = ((pte_t*)((int)(base_pde[PAGE_DIRECTORY_INDEX(startAddress)].pageTableBaseAddr)<<12));	
 				pte[k].present = 1;
 				pte[k].flags = VM_USER | VM_WRITE;
-				Print(	"ENRTY : %x\n", test[k]);	
 			}
 		}
 	}
@@ -213,7 +237,7 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 	j = PAGE_DIRECTORY_INDEX(stackPointerAddr);
 	pde = &base_pde[j];
 	pte = (pte_t*)Alloc_Page();
-	memset(pte,0,PAGE_SIZE);
+	memset(pte,'\0',PAGE_SIZE);
 	pde->pageTableBaseAddr = (uint_t)PAGE_ALLIGNED_ADDR(pte);
 	pde->present = 1;
 	pde->flags = VM_USER | VM_WRITE;
@@ -221,12 +245,12 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 	// support up to 4MB
 	for(k = NUM_PAGE_TABLE_ENTRIES-PAGE_TABLE_INDEX(DEFAULT_USER_STACK_SIZE + argBlockSize)-1; 
 		k < NUM_PAGE_TABLE_ENTRIES; k++){
-		vaddr = PAGE_ADDR_BY_IDX(j, k);
+		vaddr = PAGE_ADDR_BY_IDX(j, k) - USER_BASE_ADRR;
 		paddr = Alloc_Pageable_Page(&pte[k], vaddr);
 		pte[k].pageBaseAddr = PAGE_ALLIGNED_ADDR(paddr);    
 		pte[k].present = 1;
 		pte[k].flags = VM_USER | VM_WRITE;
-		Print("stack VA : %x\n", vaddr);
+		//Print("stack VA : %x\n", vaddr);
 	}
 
 	stackPointerAddr -= USER_BASE_ADRR; // this means virtual(logical) addr
@@ -278,6 +302,7 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 	(*pUserContext)->dsSelector = dataSelector;	
 	
 	Print("virtSize : %d\n", exeFormat->entryAddr);
+
 	//DisplayMemory(base_pde);
 	//TODO("");
 	return 0;
@@ -310,7 +335,7 @@ bool Copy_From_User(void* destInKernel, ulong_t srcInUser, ulong_t numBytes)
     //Print("Source address : %x\n", srcInUser); 
     //KASSERT(PAGE_ADDR(USER_BASE_ADRR + srcInUser))
     struct User_Context* userContext = g_currentThread->userContext;
-    memcpy(destInKernel, (void*)(USER_BASE_ADRR + srcInUser), numBytes);
+    memcpy(destInKernel, (void*)(USER_BASE_ADRR + srcInUser), numBytes); // because kernel mode
     return true;    
     //TODO("Copy user data to kernel buffer");
 }

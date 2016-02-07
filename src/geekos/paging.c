@@ -96,7 +96,36 @@ static void Print_Fault_Info(uint_t address, faultcode_t faultCode)
     /* rest of your handling code here */
     Print ("Unexpected Page Fault received\n");
     Print_Fault_Info(address, faultCode);
-    Dump_Interrupt_State(state);
+    //Dump_Interrupt_State(state);
+
+    if(faultCode.protectionViolation == 0) // Non-present page
+    {
+    	pde_t* pde;
+    	pte_t* pte;
+ 		void* paddr;
+ 		int j, k = 0;
+ 		
+		j = PAGE_DIRECTORY_INDEX(address);
+		pde = &(Get_PDBR()[j]);
+		if(pde->pageTableBaseAddr == '\0')
+		{
+			pte = (pte_t*)Alloc_Page();
+			memset(pte,'\0',PAGE_SIZE);
+			pde->pageTableBaseAddr = (uint_t)PAGE_ALLIGNED_ADDR(pte);
+			pde->present = 1;
+			pde->flags = VM_USER | VM_WRITE;
+		}
+		else
+		{
+			pte = pde->pageTableBaseAddr<<12;
+		}
+		k = PAGE_TABLE_INDEX(address);
+		paddr = Alloc_Pageable_Page(&pte[k], PAGE_ADDR(address-USER_BASE_ADRR));
+		pte[k].pageBaseAddr = PAGE_ALLIGNED_ADDR(paddr);	
+		pte[k].present = 1;
+		pte[k].flags = VM_USER | VM_WRITE;
+		return 0;
+    }
     /* user faults just kill the process */
     if (!faultCode.userModeFault) KASSERT(0);
 
@@ -249,7 +278,7 @@ void Read_From_Paging_File(void *paddr, ulong_t vaddr, int pagefileIndex)
     KASSERT(!(page->flags & PAGE_PAGEABLE)); /* Page must be locked! */
 	for(i = 0; i < SECTORS_PER_PAGE; i++)
 		Block_Read(dev, pagefileIndex*SECTORS_PER_PAGE+i, &block[i]);
-	Free_Space_On_Paging_File(pagefileIndex);
+	//Free_Space_On_Paging_File(pagefileIndex);
     //TODO("Read page data from paging file");
 }
 
