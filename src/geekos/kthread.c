@@ -163,6 +163,8 @@ static __inline__ void Push(struct Kernel_Thread* kthread, ulong_t value)
 static void Destroy_Thread(struct Kernel_Thread* kthread)
 {
 
+	Detach_User_Context(kthread); // improtant
+
     /* Dispose of the thread's memory. */
     Disable_Interrupts();
     Free_Page(kthread->stackPage);

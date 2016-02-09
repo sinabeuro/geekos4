@@ -111,7 +111,7 @@ load_setup:
 
 	; are we done?
 	mov	ax, word [setupStart]
-	add	ax, word [setupSize]
+	add	ax, word [setu pSize]
 	cmp	word [sec_count], ax
 	jl	.again
 

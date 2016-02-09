@@ -16,8 +16,9 @@ void Recurse(int x)
 	}
 
     stuff[0] = x;
-    Print("calling Recurse %d\n", x);
+    //Print("calling Recurse %d\n", x);
     Recurse(x-1);
+	Print("calling Bound %d\n", x);
 }
 
 int main(int argc, char **argv)

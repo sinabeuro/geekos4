@@ -86,27 +86,36 @@ void Destroy_User_Context(struct User_Context* context)
 
     // this function called in kernel mode
     int i, j;
-    pde_t* pde = Get_PDBR();
+    pde_t* pde = context->pageDir;
 	pte_t* pte;
-	Disable_Interrupts();
-	for(i=0; i < NUM_PAGE_DIR_ENTRIES; ++i)
+
+	for(i = PAGE_DIRECTORY_INDEX(USER_BASE_ADRR); i < NUM_PAGE_DIR_ENTRIES; ++i)
 	{
 		if(pde[i].pageTableBaseAddr == '\0')
 			continue;
-		pte = pde[i].pageTableBaseAddr<<12;
+		pte = pde[i].pageTableBaseAddr<<12; // pte is not pageable
 		for(j=0; j < NUM_PAGE_TABLE_ENTRIES; ++j)
 		{
-			if(pte[j].pageBaseAddr == '\0')
-				continue;
-			Free_Page(pte[j].pageBaseAddr<< 12);
+			Disable_Interrupts();
+			if(pte[j].present == 0 && pte[j].kernelInfo == KINFO_PAGE_ON_DISK)
+			{
+				// this page is in the swap space
+				Free_Space_On_Paging_File(pte[j].pageBaseAddr);
+			}
+			else if(pte[j].present == 1)
+			{
+				//Print("free page : %x\n", pte[j].pageBaseAddr<<12);
+				Free_Page(pte[j].pageBaseAddr<<12);
+			}
+			Enable_Interrupts();
 		}
 		Free_Page(pte);		
 	}
 	Free_Page(pde);	
-	Enable_Interrupts();
 
+	Print("complete to free page\n");
     Free_Segment_Descriptor(context->ldtDescriptor);
-    Free(context->memory);
+    //Free(context->memory);
     Free(context);
 	return 0; 
 
@@ -172,9 +181,7 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 	virtSize = Round_Up_To_Page(maxva);
 	stackPointerAddr = PAGE_ADDR(0xFFFFFFFF);
 	//+ DEFAULT_USER_STACK_SIZE;	
-
-    extern struct Page* g_pageList;
-
+	
     pde_t* base_pde = 0;
 	pde_t* pde = 0;
 	pte_t* base_pte = 0;
@@ -217,7 +224,7 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 			for(k=0;
 				k <= PAGE_TABLE_INDEX(segment->lengthInFile); k++)
 			{
-				vaddr = PAGE_ADDR(startAddress - USER_BASE_ADRR + PAGE_ADDR_BY_IDX(j, k)); // vaddr?
+				vaddr = PAGE_ADDR(startAddress + PAGE_ADDR_BY_IDX(j, k)); // vaddr?
 				paddr = Alloc_Pageable_Page(&pte[k], vaddr);
 				pte[k].pageBaseAddr = PAGE_ALLIGNED_ADDR(paddr); 
 				memcpy(paddr,
@@ -245,7 +252,7 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 	// support up to 4MB
 	for(k = NUM_PAGE_TABLE_ENTRIES-PAGE_TABLE_INDEX(DEFAULT_USER_STACK_SIZE + argBlockSize)-1; 
 		k < NUM_PAGE_TABLE_ENTRIES; k++){
-		vaddr = PAGE_ADDR_BY_IDX(j, k) - USER_BASE_ADRR;
+		vaddr = PAGE_ADDR_BY_IDX(j, k);
 		paddr = Alloc_Pageable_Page(&pte[k], vaddr);
 		pte[k].pageBaseAddr = PAGE_ALLIGNED_ADDR(paddr);    
 		pte[k].present = 1;
@@ -335,7 +342,11 @@ bool Copy_From_User(void* destInKernel, ulong_t srcInUser, ulong_t numBytes)
     //Print("Source address : %x\n", srcInUser); 
     //KASSERT(PAGE_ADDR(USER_BASE_ADRR + srcInUser))
     struct User_Context* userContext = g_currentThread->userContext;
+	//struct Page* page = Get_Page(USER_BASE_ADRR + srcInUser);
+
+	KASSERT(!Interrupts_Enabled());
     memcpy(destInKernel, (void*)(USER_BASE_ADRR + srcInUser), numBytes); // because kernel mode
+
     return true;    
     //TODO("Copy user data to kernel buffer");
 }

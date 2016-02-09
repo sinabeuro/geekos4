@@ -32,6 +32,7 @@
  * ---------------------------------------------------------------------- */
 static char* swapMap;
 static uint_t totalPage;
+static ulong_t startSector;
 struct Block_Device* dev;
 
 #define SECTORS_PER_PAGE (PAGE_SIZE / SECTOR_SIZE)
@@ -103,6 +104,7 @@ static void Print_Fault_Info(uint_t address, faultcode_t faultCode)
     	pde_t* pde;
     	pte_t* pte;
  		void* paddr;
+ 		uint_t kernelInfo;
  		int j, k = 0;
  		
 		j = PAGE_DIRECTORY_INDEX(address);
@@ -119,11 +121,24 @@ static void Print_Fault_Info(uint_t address, faultcode_t faultCode)
 		{
 			pte = pde->pageTableBaseAddr<<12;
 		}
+
 		k = PAGE_TABLE_INDEX(address);
-		paddr = Alloc_Pageable_Page(&pte[k], PAGE_ADDR(address-USER_BASE_ADRR));
-		pte[k].pageBaseAddr = PAGE_ALLIGNED_ADDR(paddr);	
+		kernelInfo = pte[k].kernelInfo;
+		paddr = Alloc_Pageable_Page(&pte[k], PAGE_ADDR(address));
+
+		if(kernelInfo == KINFO_PAGE_ON_DISK) // case 2
+		{
+			Print ("KINFO_PAGE_ON_DISK\n");
+			Enable_Interrupts();
+			Read_From_Paging_File(paddr, address, pte[k].pageBaseAddr);
+			Disable_Interrupts();
+			Free_Space_On_Paging_File(pte[k].pageBaseAddr);
+		}
+		
 		pte[k].present = 1;
-		pte[k].flags = VM_USER | VM_WRITE;
+		pte[k].flags = VM_USER | VM_WRITE;			
+		pte[k].pageBaseAddr = PAGE_ALLIGNED_ADDR(paddr);	
+		
 		return 0;
     }
     /* user faults just kill the process */
@@ -198,6 +213,7 @@ void Init_Paging(void)
 	struct Paging_Device *pagedev = Get_Paging_Device();
 	dev = pagedev->dev;
 	totalPage = (pagedev->numSectors)/SECTORS_PER_PAGE; 
+	startSector = pagedev->startSector;
 	swapMap = (char*)Malloc(totalPage);
 	memset(swapMap,0,totalPage);
 	
@@ -214,14 +230,12 @@ int Find_Space_On_Paging_File(void)
 {
 	int i;
     KASSERT(!Interrupts_Enabled());
-    Disable_Interrupts();
+
 	for(i = 0; i < totalPage; i++){
-		if(swapMap[i] > 0){
-			Enable_Interrupts();
+		if(swapMap[i] == 0){
 			return i;
 		}
 	}
-    Enable_Interrupts();
 	return -1;
     //TODO("Find free page in paging file");
 }
@@ -234,9 +248,7 @@ int Find_Space_On_Paging_File(void)
 void Free_Space_On_Paging_File(int pagefileIndex)
 {
     KASSERT(!Interrupts_Enabled());
-    Disable_Interrupts();
 	swapMap[pagefileIndex] = 0;
-    Enable_Interrupts();
 
     //TODO("Free page in paging file");
 }
@@ -256,7 +268,7 @@ void Write_To_Paging_File(void *paddr, ulong_t vaddr, int pagefileIndex)
 	struct Page *page = Get_Page((ulong_t) paddr);
     KASSERT(!(page->flags & PAGE_PAGEABLE)); /* Page must be locked! */
 	for(i = 0; i < SECTORS_PER_PAGE; i++)
-		Block_Write(dev, pagefileIndex*SECTORS_PER_PAGE+i, &block[i]);
+		Block_Write(dev, startSector+pagefileIndex*SECTORS_PER_PAGE+i, &block[i]);
 	swapMap[pagefileIndex] = 1;
     //TODO("Write page data to paging file");
 }
@@ -275,9 +287,8 @@ void Read_From_Paging_File(void *paddr, ulong_t vaddr, int pagefileIndex)
 	int i;
 	block_t* block = (block_t*)paddr;
     struct Page *page = Get_Page((ulong_t) paddr);
-    KASSERT(!(page->flags & PAGE_PAGEABLE)); /* Page must be locked! */
-	for(i = 0; i < SECTORS_PER_PAGE; i++)
-		Block_Read(dev, pagefileIndex*SECTORS_PER_PAGE+i, &block[i]);
+    for(i = 0; i < SECTORS_PER_PAGE; i++)
+		Block_Read(dev, startSector+pagefileIndex*SECTORS_PER_PAGE+i, &block[i]);
 	//Free_Space_On_Paging_File(pagefileIndex);
     //TODO("Read page data from paging file");
 }
