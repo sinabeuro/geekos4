@@ -15,6 +15,7 @@
 
 #define BUFSIZE 79
 #define DEFAULT_PATH "/c:/a"
+#
 
 #define INFILE	0x1
 #define OUTFILE	0x2
@@ -33,11 +34,22 @@ struct Process {
     int pipefd;
 };
 
+#define HISTORY_SIZE 10
+typedef struct History {
+	char list[HISTORY_SIZE][BUFSIZE];
+	int len;
+	int cursor;
+}history_t;
+
 char *Strip_Leading_Whitespace(char *s);
 void Trim_Newline(char *s);
 char *Copy_Token(char *token, char *s);
 int Build_Pipeline(char *command, struct Process procList[]);
 void Spawn_Single_Command(struct Process procList[], int nproc, const char *path);
+void Print_History(history_t* history);
+int Process_Arrow_Key(Keycode* k, char* buf, char** ptr, size_t* n, void* arg);
+int Get_History_Item(history_t* history);
+
 
 /* Maximum number of processes allowed in a pipeline. */
 #define MAXPROC 5
@@ -51,55 +63,151 @@ int main(int argc, char **argv)
     struct Process procList[MAXPROC];
     char path[BUFSIZE+1] = DEFAULT_PATH;
     char *command;
+	history_t history;
+	Init_History(&history);
 
     /* Set attribute to gray on black. */
 	Print("\x1B[37m");
 
     while (true) {
-	/* Print shell prompt (bright cyan on black background) */
-	Print("\x1B[1;36m$\x1B[37m ");
+		/* Print shell prompt (bright cyan on black background) */
+		Print("\x1B[1;36m$\x1B[37m ");
 
-	/* Read a line of input */
-	Read_Line(commandBuf, sizeof(commandBuf));
-	command = Strip_Leading_Whitespace(commandBuf);
-	Trim_Newline(command);
+		/* Read a line of input */
+		Read_Line(commandBuf, sizeof(commandBuf), 
+					Process_Arrow_Key, (void*)&history);		
+		command = Strip_Leading_Whitespace(commandBuf);
+		Trim_Newline(command);
 
-	/*
-	 * Handle some special commands
-	 */
-	if (strcmp(command, "exit") == 0) {
-	    /* Exit the shell */
-	    break;
-	} else if (strcmp(command, "pid") == 0) {
-	    /* Print the pid of this process */
-	    Print("%d\n", Get_PID());
-	    continue;
-	} else if (strcmp(command, "exitCodes") == 0) {
-	    /* Print exit codes of spawned processes. */
-	    exitCodes = 1;
-	    continue;
-	} else if (strncmp(command, "path=", 5) == 0) {
-	    /* Set the executable search path */
-	    strcpy(path, command + 5);
-	    continue;
-	} else if (strcmp(command, "") == 0) {
-	    /* Blank line. */
-	    continue;
-	}
+		/*
+		 * Handle some special commands
+		 */
+		if (strcmp(command, "exit") == 0) {
+		    /* Exit the shell */
+		    break;
+		} else if (strcmp(command, "pid") == 0) {
+		    /* Print the pid of this process */
+		    Print("%d\n", Get_PID());
+		    continue;
+		} else if (strcmp(command, "exitCodes") == 0) {
+		    /* Print exit codes of spawned processes. */
+		    exitCodes = 1;
+		    continue;
+		} else if (strncmp(command, "path=", 5) == 0) {
+		    /* Set the executable search path */
+		    strcpy(path, command + 5);
+		    continue;
+		} /* else if (strncmp(command, "up", 2) == 0) {
+		    //Print("%s\n", history.list[1]);
+			//command = history.list[1];
+		    continue;
+		} */
+		else if (strncmp(command, "history", 7) == 0) {
+		    Print_History(&history);
+		    continue;
+		}else if (strcmp(command, "") == 0) {
+		    /* Blank line. */
+		    continue;
+		}
 
-	/*
-	 * Parse the command string and build array of
-	 * Process structs representing a pipeline of commands.
-	 */
-	nproc = Build_Pipeline(command, procList);
-	if (nproc <= 0)
-	    continue;
+		/*
+		 * Parse the command string and build array of
+		 * Process structs representing a pipeline of commands.
+		 */
+		nproc = Build_Pipeline(command, procList);
+		if (nproc <= 0)
+		    continue;
 
-	Spawn_Single_Command(procList, nproc, path);
+		Add_History_Item(&history, command);
+		Spawn_Single_Command(procList, nproc, path);
     }
 
     Print_String("DONE!\n");
     return 0;
+}
+
+int Init_History(history_t* history)
+{
+	int i;
+	for(i = 1; i < HISTORY_SIZE; i++)
+		strcpy(history->list[i], "");
+	history->len = 0;
+	history->cursor = 1;
+	return 0;
+}
+
+int Get_History_Item(history_t* history)
+{
+	/* Need refactoring */
+	char* ret;
+	if(history->cursor > 1)
+		ret = history->list[history->cursor--];
+	else 
+		ret = history->list[1];
+	return ret;
+}
+
+int Add_History_Item(history_t* history, char* command)
+{	
+	strcpy(history->list[(++history->len)%HISTORY_SIZE], command);
+	history->cursor = history->len;
+	return 0;
+}
+
+
+void Print_History(history_t* history)
+{
+	int i;
+	for(i = 1; i < HISTORY_SIZE; i++) 
+		Print(" %d  %s\n", i, history->list[i]);
+}
+
+
+int Process_Arrow_Key(Keycode* k, char* buf, char** ptr, size_t* n, void* arg)
+{
+    int startrow = 0, startcol = 0;
+	history_t* history = (history_t*)arg;
+	char* string;
+	int cont = false;
+	
+	/* Escaped scancodes */ 
+	if((*k & 0xff)== 0xe0){
+		*k = Get_Key();
+		//Print("key : %x\n", *k);
+		switch(*k){
+			case 0x48:
+				string = Get_History_Item(history);
+				strcpy(buf, string);
+				Get_Cursor(&startrow, &startcol);
+				Put_Cursor(startrow, 2);
+			 	Print("%s", buf);
+				(*ptr) = strlen(string);
+				(*n) = strlen(string);
+				cont = true;
+				//n += strlen(string);
+				//continue;
+				break;
+			case 0x50:
+				string = Get_History_Item(history);
+				strcpy(buf, string);
+				Get_Cursor(&startrow, &startcol);
+				Put_Cursor(startrow, 2);
+			 	Print("%s", buf);
+				(*ptr) = strlen(string);
+				(*n) = strlen(string);
+				cont = true;
+				//n += strlen(string);
+				//continue;
+				break;
+			case 0x4b:
+				memcpy(ptr, "left", 4);
+				break;
+			case 0x4d:
+				memcpy(ptr, "right", 4);
+				break;
+		}
+	}
+	return cont;
 }
 
 /*
@@ -262,22 +370,22 @@ void Spawn_Single_Command(struct Process procList[], int nproc, const char *path
     int pid;
 
     if (nproc > 1) {
-	Print("Error: pipes not supported yet\n");
-	return;
+		Print("Error: pipes not supported yet\n");
+		return;
     }
     if (procList[0].flags & (INFILE|OUTFILE)) {
-	Print("Error: I/O redirection not supported yet\n");
-	return;
+		Print("Error: I/O redirection not supported yet\n");
+		return;
     }
 
     pid = Spawn_With_Path(procList[0].program, procList[0].command,
 	path);
     if (pid < 0)
-	Print("Could not spawn process: %s\n", Get_Error_String(pid));
+		Print("Could not spawn process: %s\n", Get_Error_String(pid));
     else {
-	int exitCode = Wait(pid);
-	if (exitCodes)
-	    Print("Exit code was %d\n", exitCode);
+		int exitCode = Wait(pid);
+		if (exitCodes)
+		    Print("Exit code was %d\n", exitCode);
     }
 }
 

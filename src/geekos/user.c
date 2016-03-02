@@ -40,7 +40,7 @@ void Attach_User_Context(struct Kernel_Thread* kthread, struct User_Context* con
      * to share a user context (yet)
      */
 
-    Print("User context refcount == %d %d\n", context->refCount, kthread->pid); 
+//   Print("User context refcount == %d %d\n", context->refCount, kthread->pid); 
     KASSERT(context->refCount == 0);
 
     ++context->refCount;
@@ -66,7 +66,7 @@ void Detach_User_Context(struct Kernel_Thread* kthread)
 	refCount = old->refCount;
 	Enable_Interrupts();
 
-	//rint("User context refcount == %d\n", refCount);
+	//Print("User context refcount == %d\n", refCount);
         if (refCount == 0)
             Destroy_User_Context(old);
     }

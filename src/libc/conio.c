@@ -48,7 +48,7 @@ void Echo(bool enable)
     s_echo = enable;
 }
 
-void Read_Line(char* buf, size_t bufSize)
+void Read_Line(char* buf, size_t bufSize, custom_handler ch, void* arg)
 {
     char *ptr = buf;
     size_t n = 0;
@@ -60,64 +60,68 @@ void Read_Line(char* buf, size_t bufSize)
 
     bufSize--;
     do {
-	k = Get_Key();
-	if ((k & KEY_SPECIAL_FLAG) || (k & KEY_RELEASE_FLAG))
-	    continue;
+		k = Get_Key();
+		
+		/* Escaped scancodes */ 
+		if(ch) if(ch(&k, buf, &ptr, &n, arg)) continue;
+			
+		if ((k & KEY_SPECIAL_FLAG) || (k & KEY_RELEASE_FLAG))
+		    continue;
 
-	k &= 0xff;
-	if (k == '\r')
-	    k = '\n';
+		k &= 0xff;
+		if (k == '\r')
+		    k = '\n';
 
-	if (k == ASCII_BS) {
-	    if (n > 0) {
-		char last = *(ptr - 1);
-		int newcol = startcol;
-		size_t i;
+		if (k == ASCII_BS) {
+		    if (n > 0) {
+				char last = *(ptr - 1);
+				int newcol = startcol;
+				size_t i;
 
-		/* Back up in line buffer */
-		--ptr;
-		--n;
+				/* Back up in line buffer */
+				--ptr;
+				--n;
 
-		if (s_echo) {
-		    /*
-		     * Figure out what the column position of the last
-		     * character was
-		     */
-		    for (i = 0; i < n; ++i) {
-			char ch = buf[i];
-			if (ch == '\t') {
-			    int rem = newcol % TABWIDTH;
-			    newcol += (rem == 0) ? TABWIDTH : (TABWIDTH - rem);
-			} else {
-			    ++newcol;
-			}
+				if (s_echo) {
+				    /*
+				     * Figure out what the column position of the last
+				     * character was
+				     */
+				    for (i = 0; i < n; ++i) {
+					char ch = buf[i];
+					if (ch == '\t') {
+					    int rem = newcol % TABWIDTH;
+					    newcol += (rem == 0) ? TABWIDTH : (TABWIDTH - rem);
+					} else {
+					    ++newcol;
+					}
+				    }
+
+				    /* Erase last character */
+				    if (last != '\t')
+					last = ' ';
+				    Put_Cursor(startrow, newcol);
+				    Put_Char(last);
+				    Put_Cursor(startrow, newcol);
+				}
 		    }
-
-		    /* Erase last character */
-		    if (last != '\t')
-			last = ' ';
-		    Put_Cursor(startrow, newcol);
-		    Put_Char(last);
-		    Put_Cursor(startrow, newcol);
+		    continue;
 		}
-	    }
-	    continue;
-	}
 
-	if (s_echo)
-	    Put_Char(k);
+		if (s_echo)
+		    Put_Char(k);
 
-	if (k == '\n')
-	    done = true;
-
-	if (n < bufSize) {
-	    *ptr++ = k;
-	    ++n;
-	}
+		if (k == '\n')
+		    done = true;
+	
+		if (n < bufSize) {
+		    *ptr++ = k;
+		    ++n;
+		}
     }
     while (!done);
-
     *ptr = '\0';
+    //Print("command : %s\n", buf);
 }
 
 const char *Get_Error_String(int errno)

@@ -20,12 +20,17 @@
 #include <geekos/segment.h>
 #include <geekos/gdt.h>
 
-
-#define DEFAULT_USER_STACK_SIZE 8192
+#define DEFAULT_USER_STACK_SIZE 4096
+#define END_OF_VM 0xFFFFFFFF
 
 /* ----------------------------------------------------------------------
  * Private functions
  * ---------------------------------------------------------------------- */
+/*
+ * flag to indicate if debugging paging code
+ */
+extern int debugFaults;
+#define Debug(args...) if (debugFaults) Print(args)
 
 // TODO: Add private functions
 /* ----------------------------------------------------------------------
@@ -113,7 +118,7 @@ void Destroy_User_Context(struct User_Context* context)
 	}
 	Free_Page(pde);	
 
-	Print("complete to free page\n");
+	//Print("complete to free page\n");
     Free_Segment_Descriptor(context->ldtDescriptor);
     //Free(context->memory);
     Free(context);
@@ -166,6 +171,7 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 	ulong_t vaddr = 0;
 	void* paddr = 0;
 
+	/* Determine space requirements argument block */
 	Get_Argument_Block_Size(command, &numArgs, &argBlockSize);
 
 	/* Find maximum virtual address */
@@ -177,37 +183,38 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 		maxva = topva;
 	}
 	
-	/* setup some memory space for the program */
+	/* Setup some memory space for the program */
 	virtSize = Round_Up_To_Page(maxva);
-	stackPointerAddr = PAGE_ADDR(0xFFFFFFFF);
-	//+ DEFAULT_USER_STACK_SIZE;	
+	stackPointerAddr = PAGE_ADDR(END_OF_VM);
 	
     pde_t* base_pde = 0;
 	pde_t* pde = 0;
 	pte_t* base_pte = 0;
 	pte_t* pte = 0;
-	pte_t* test = 0;
 
-	// copy all of the mappings from the kernel mode page directory 
+	/* Copy all of the mappings from the kernel mode page directory */ 
 	base_pde = (pde_t*)Alloc_Page();
-	memset(base_pde,'\0',PAGE_SIZE);
+	memset(base_pde,'\0',PAGE_SIZE); /* Null char means that there is no entry */
 	memcpy(base_pde, Get_PDBR(), PAGE_SIZE/2); // very important
 	
-	// alloc user page dir entry(start from 0x80000000) 
+	/* Alloc user page dir entry(start from 0x80000000) */
 	for(i=0; i < exeFormat->numSegments; ++i){
 		struct Exe_Segment *segment = &exeFormat->segmentList[i];
 		ulong_t startAddress = USER_BASE_ADRR + segment->startAddress;
 		ulong_t offsetInFile = segment->offsetInFile;	
-		Print("%x\n", *(int*)(exeFileData + offsetInFile));
-	    Print("SA : %x, Offset, %x\n", startAddress, offsetInFile);
+		Debug("\nSegment %d : \n", i);
+		Debug( "%6s %-12s%-15s%-15s\n",
+			   "Idx", "Start VAddr", "Offset In File", "Sample Data" );
+		Debug( "%6d %-12x%-15x0x%-15x\n",
+			   PAGE_DIRECTORY_INDEX(startAddress), startAddress,
+			   offsetInFile, *(int*)(exeFileData + offsetInFile));
 		pde = &base_pde[PAGE_DIRECTORY_INDEX(startAddress)];
-		Print("pdir idx : %x\n", PAGE_DIRECTORY_INDEX(startAddress));	
-		// alloc page table entry
+		/* Alloc page table */
 	    for(j=0; j<=PAGE_DIRECTORY_INDEX(segment->lengthInFile); j++) 
 	    {
-	    	if(pde[j].pageTableBaseAddr == '\0')
+	    	/* Page table is not exist */
+	    	if(pde[j].pageTableBaseAddr == '\0') 
 	    	{
-	    		Print("PT NOT EXIST.\n");
 				base_pte = (pte_t*)Alloc_Page();
 			 	memset(base_pte,'\0',PAGE_SIZE);
 			}
@@ -221,6 +228,10 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 			pde[j].flags = VM_USER | VM_WRITE;
 
 			pte = &base_pte[PAGE_TABLE_INDEX(startAddress)];
+			Debug( "\n%6s %-12s%-15s%-15s%-15s\n",
+			   "Idx", "VAddr", "PAddr", "Offset", "Sample Data");
+
+			/* Alloc page table entry and map to physical address */
 			for(k=0;
 				k <= PAGE_TABLE_INDEX(segment->lengthInFile); k++)
 			{
@@ -230,17 +241,16 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 				memcpy(paddr,
 					   exeFileData + PAGE_ADDR(segment->offsetInFile + PAGE_ADDR_BY_IDX(j, k)),
 					   PAGE_SIZE);
-				Print(	"VA : %x, PA : %x, Data : %x, Offset : %x\n", vaddr, paddr,
-						*(int*)paddr,
-						PAGE_ADDR(segment->offsetInFile + PAGE_ADDR_BY_IDX(j, k))
-						);
+				Debug( "%6d %-12x%-15x%-15x%-15x\n", k, vaddr, paddr,
+						PAGE_ADDR(segment->offsetInFile + PAGE_ADDR_BY_IDX(j, k)),
+						*(int*)paddr);
 				pte[k].present = 1;
 				pte[k].flags = VM_USER | VM_WRITE;
 			}
 		}
 	}
 
-	// alloc stack..
+	// Alloc stack..
 	j = PAGE_DIRECTORY_INDEX(stackPointerAddr);
 	pde = &base_pde[j];
 	pte = (pte_t*)Alloc_Page();
@@ -260,11 +270,9 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 		//Print("stack VA : %x\n", vaddr);
 	}
 
-	stackPointerAddr -= USER_BASE_ADRR; // this means virtual(logical) addr
-	Format_Argument_Block(	paddr, numArgs, // user addr?
+	stackPointerAddr -= USER_BASE_ADRR; // This means virtual(logical) addr
+	Format_Argument_Block(	paddr, numArgs, 
 							stackPointerAddr, command); 
-	//for(i =0; i < 10; i++)
-	//	Print("arg block data : %x\n", *(int*)(paddr+4*i));
 
 	*pUserContext = (struct User_Context*)Malloc(sizeof(struct User_Context));
 	(*pUserContext)->memory = (char*)NULL; // i dont know..
@@ -308,8 +316,7 @@ int Load_User_Program(char *exeFileData, ulong_t exeFileLength,
 	dataSelector = Selector(USER_PRIVILEGE, false, 1);
 	(*pUserContext)->dsSelector = dataSelector;	
 	
-	Print("virtSize : %d\n", exeFormat->entryAddr);
-
+	//Print("virtSize : %d\n", exeFormat->entryAddr);
 	//DisplayMemory(base_pde);
 	//TODO("");
 	return 0;

@@ -98,12 +98,12 @@ int strncmp(const char* s1, const char* s2, size_t limit)
 {
     size_t i = 0;
     while (i < limit) {
-	int cmp = *s1 - *s2;
-	if (cmp != 0 || *s1 == '\0' || *s2 == '\0')
-	    return cmp;
-	++s1;
-	++s2;
-	++i;
+		int cmp = *s1 - *s2;
+		if (cmp != 0 || *s1 == '\0' || *s2 == '\0')
+		    return cmp;
+		++s1;
+		++s2;
+		++i;
     }
 
     /* limit reached and equal */

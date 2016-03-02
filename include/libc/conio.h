@@ -15,6 +15,9 @@
 #include <geekos/keyboard.h>	 /* key codes */
 #include <geekos/screen.h>	 /* screen attributes */
 
+
+typedef int (*custom_handler)(Keycode*, char*, char**, size_t*, void*);
+
 void Print(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 int Print_String(const char* msg);
 int Put_Char(int ch);
@@ -24,7 +27,7 @@ int Get_Cursor(int *row, int *col);
 int Put_Cursor(int row, int col);
 
 void Echo(bool enable);
-void Read_Line(char* buf, size_t bufSize);
+void Read_Line(char* buf, size_t bufSize, custom_handler ch, void* arg);
 
 const char *Get_Error_String(int errno);
 

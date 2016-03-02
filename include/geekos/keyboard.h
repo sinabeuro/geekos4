@@ -117,6 +117,8 @@ typedef ushort_t Keycode;
 #define ASCII_ESC 0x1B
 #define ASCII_BS  0x08
 
+#define KEY_ESCAPE 0xe0
+
 #ifdef GEEKOS
 
 /*

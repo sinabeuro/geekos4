@@ -40,7 +40,7 @@ struct Block_Device* dev;
 /*
  * flag to indicate if debugging paging code
  */
-int debugFaults = 0;
+int debugFaults = 1;
 #define Debug(args...) if (debugFaults) Print(args)
 
 

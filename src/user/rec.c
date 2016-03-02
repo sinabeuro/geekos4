@@ -10,15 +10,12 @@ void Recurse(int x)
 {
     int stuff[512];
 
-    if (x == 0){
-		Print("done.\n");
-		return;
-	}
+    if (x == 0) return;
 
     stuff[0] = x;
     //Print("calling Recurse %d\n", x);
     Recurse(x-1);
-	Print("calling Bound %d\n", x);
+	//Print("calling Bound %d\n", x);
 }
 
 int main(int argc, char **argv)
@@ -32,7 +29,7 @@ int main(int argc, char **argv)
     }
 
     Recurse(depth);
-
+	Print("done.\n");
     return 0;
 }
 

@@ -48,9 +48,11 @@
 #define RIGHT_CTRL  0x08
 #define LEFT_ALT    0x10
 #define RIGHT_ALT   0x20
+#define ESCAPE   	0x40
 #define SHIFT_MASK  (LEFT_SHIFT | RIGHT_SHIFT)
 #define CTRL_MASK   (LEFT_CTRL | RIGHT_CTRL)
 #define ALT_MASK    (LEFT_ALT | RIGHT_ALT)
+#define ESCAPE_MASK	ESCAPE
 static unsigned s_shiftState = 0;
 
 /*
@@ -127,6 +129,8 @@ static const Keycode s_scanTableWithShift[] = {
     KEY_SYSREQ, KEY_UNKNOWN, KEY_UNKNOWN, KEY_UNKNOWN,  /* 0x54 - 0x57 */
 };
 
+
+
 static __inline__ bool Is_Queue_Empty(void)
 {
     return s_queueHead == s_queueTail;
@@ -161,7 +165,7 @@ static void Keyboard_Interrupt_Handler(struct Interrupt_State* state)
 {
     uchar_t status, scanCode;
     unsigned flag = 0;
-    bool release = false, shift;
+    bool release = false, shift, escape;
     Keycode keycode;
 
     Begin_IRQ(state);
@@ -173,46 +177,58 @@ static void Keyboard_Interrupt_Handler(struct Interrupt_State* state)
 	/* There is a byte available */
 	scanCode = In_Byte(KB_DATA);
 	IO_Delay();
+
 /*
- *	Print("code=%x%s\n", scanCode, (scanCode&0x80) ? " [release]" : "");
+ *	Print("code=%x%s\n", scanCode, (scanCode&0x80) ? " [release]" : "", s_shiftState);
  */
+	if(scanCode != 0xe0)
+	{
+		if (scanCode & KB_KEY_RELEASE) {
+		    release = true;
+		    scanCode &= ~(KB_KEY_RELEASE);
+		}
 
-	if (scanCode & KB_KEY_RELEASE) {
-	    release = true;
-	    scanCode &= ~(KB_KEY_RELEASE);
+		if (scanCode >= SCAN_TABLE_SIZE) {
+		    Print("Unknown scan code: %x\n", scanCode);
+		    goto done;
+		}
+		/* Process the key */
+		shift = ((s_shiftState & SHIFT_MASK) != 0);
+		keycode = shift ? s_scanTableWithShift[scanCode] : s_scanTableNoShift[scanCode];
+		escape = ((s_shiftState & ESCAPE_MASK) != 0);
+		keycode = escape ? scanCode : keycode;
+		s_shiftState &= ~(ESCAPE_MASK);
 	}
-
-	if (scanCode >= SCAN_TABLE_SIZE) {
-	    Print("Unknown scan code: %x\n", scanCode);
-	    goto done;
+	else
+	{
+		keycode = scanCode;
 	}
-
-	/* Process the key */
-	shift = ((s_shiftState & SHIFT_MASK) != 0);
-	keycode = shift ? s_scanTableWithShift[scanCode] : s_scanTableNoShift[scanCode];
-
+	
 	/* Update shift, control and alt state */
 	switch (keycode) {
-	case KEY_LSHIFT:
-	    flag = LEFT_SHIFT;
-	    break;
-	case KEY_RSHIFT:
-	    flag = RIGHT_SHIFT;
-	    break;
-	case KEY_LCTRL:
-	    flag = LEFT_CTRL;
-	    break;
-	case KEY_RCTRL:
-	    flag = RIGHT_CTRL;
-	    break;
-	case KEY_LALT:
-	    flag = LEFT_ALT;
-	    break;
-	case KEY_RALT:
-	    flag = RIGHT_ALT;
-	    break;
-	default:
-	    goto noflagchange;
+		case KEY_LSHIFT:
+		    flag = LEFT_SHIFT;
+		    break;
+		case KEY_RSHIFT:
+		    flag = RIGHT_SHIFT;
+		    break;
+		case KEY_LCTRL:
+		    flag = LEFT_CTRL;
+		    break;
+		case KEY_RCTRL:
+		    flag = RIGHT_CTRL;
+		    break;
+		case KEY_LALT:
+		    flag = LEFT_ALT;
+		    break;
+		case KEY_RALT:
+		    flag = RIGHT_ALT;
+		    break;
+		case KEY_ESCAPE:
+		    flag = ESCAPE;
+		    s_shiftState |= flag;
+		    default:
+		    goto noflagchange;
 	}
 
 	if (release)
