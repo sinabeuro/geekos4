@@ -27,7 +27,7 @@ int Get_Cursor(int *row, int *col);
 int Put_Cursor(int row, int col);
 
 void Echo(bool enable);
-void Read_Line(char* buf, size_t bufSize, custom_handler ch, void* arg);
+void Read_Line(char* buf, size_t bufSize);
 
 const char *Get_Error_String(int errno);
 

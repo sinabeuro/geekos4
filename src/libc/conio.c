@@ -88,18 +88,18 @@ void Read_Line(char* buf, size_t bufSize, custom_handler ch, void* arg)
 				     * character was
 				     */
 				    for (i = 0; i < n; ++i) {
-					char ch = buf[i];
-					if (ch == '\t') {
-					    int rem = newcol % TABWIDTH;
-					    newcol += (rem == 0) ? TABWIDTH : (TABWIDTH - rem);
-					} else {
-					    ++newcol;
-					}
+						char ch = buf[i];
+						if (ch == '\t') {
+						    int rem = newcol % TABWIDTH;
+						    newcol += (rem == 0) ? TABWIDTH : (TABWIDTH - rem);
+						} else {
+						    ++newcol;
+						}
 				    }
 
 				    /* Erase last character */
 				    if (last != '\t')
-					last = ' ';
+						last = ' ';
 				    Put_Cursor(startrow, newcol);
 				    Put_Char(last);
 				    Put_Cursor(startrow, newcol);

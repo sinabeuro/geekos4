@@ -91,7 +91,8 @@ COMMON_C_OBJS := $(COMMON_C_SRCS:%.c=common/%.o)
 LIBC_C_SRCS := \
 	sched.c sema.c \
 	compat.c process.c\
-	conio.c 
+	conio.c\
+	history.c
 
 # User libc object files.
 LIBC_C_OBJS := $(LIBC_C_SRCS:%.c=libc/%.o)

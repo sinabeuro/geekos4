@@ -12,16 +12,19 @@
 #include <conio.h>
 #include <process.h>
 #include <string.h>
+#include <history.h>
 
 #define BUFSIZE 79
 #define DEFAULT_PATH "/c:/a"
-#
 
 #define INFILE	0x1
 #define OUTFILE	0x2
 #define PIPE	0x4
 
 #define ISSPACE(c) ((c) == ' ' || (c) == '\t')
+
+#define UP 1
+#define DOWN -1
 
 struct Process {
     int flags;
@@ -34,27 +37,19 @@ struct Process {
     int pipefd;
 };
 
-#define HISTORY_SIZE 10
-typedef struct History {
-	char list[HISTORY_SIZE][BUFSIZE];
-	int len;
-	int cursor;
-}history_t;
-
 char *Strip_Leading_Whitespace(char *s);
 void Trim_Newline(char *s);
 char *Copy_Token(char *token, char *s);
 int Build_Pipeline(char *command, struct Process procList[]);
 void Spawn_Single_Command(struct Process procList[], int nproc, const char *path);
-void Print_History(history_t* history);
 int Process_Arrow_Key(Keycode* k, char* buf, char** ptr, size_t* n, void* arg);
-int Get_History_Item(history_t* history);
-
+void Clear_Line(void);
 
 /* Maximum number of processes allowed in a pipeline. */
 #define MAXPROC 5
 
 int exitCodes = 0;
+history_t history;
 
 int main(int argc, char **argv)
 {
@@ -63,7 +58,7 @@ int main(int argc, char **argv)
     struct Process procList[MAXPROC];
     char path[BUFSIZE+1] = DEFAULT_PATH;
     char *command;
-	history_t history;
+
 	Init_History(&history);
 
     /* Set attribute to gray on black. */
@@ -126,48 +121,22 @@ int main(int argc, char **argv)
     return 0;
 }
 
-int Init_History(history_t* history)
+void Clear_Line(void)
 {
 	int i;
-	for(i = 1; i < HISTORY_SIZE; i++)
-		strcpy(history->list[i], "");
-	history->len = 0;
-	history->cursor = 1;
-	return 0;
+    int startrow = 0, startcol = 0;
+	Get_Cursor(&startrow, &startcol);
+	Put_Cursor(startrow, 2);
+	for(i = 2; i < 50; i++)
+		Print(" ");
+	Put_Cursor(startrow, 2);
 }
-
-int Get_History_Item(history_t* history)
-{
-	/* Need refactoring */
-	char* ret;
-	if(history->cursor > 1)
-		ret = history->list[history->cursor--];
-	else 
-		ret = history->list[1];
-	return ret;
-}
-
-int Add_History_Item(history_t* history, char* command)
-{	
-	strcpy(history->list[(++history->len)%HISTORY_SIZE], command);
-	history->cursor = history->len;
-	return 0;
-}
-
-
-void Print_History(history_t* history)
-{
-	int i;
-	for(i = 1; i < HISTORY_SIZE; i++) 
-		Print(" %d  %s\n", i, history->list[i]);
-}
-
 
 int Process_Arrow_Key(Keycode* k, char* buf, char** ptr, size_t* n, void* arg)
 {
     int startrow = 0, startcol = 0;
 	history_t* history = (history_t*)arg;
-	char* string;
+	char* string = NULL;
 	int cont = false;
 	
 	/* Escaped scancodes */ 
@@ -175,35 +144,28 @@ int Process_Arrow_Key(Keycode* k, char* buf, char** ptr, size_t* n, void* arg)
 		*k = Get_Key();
 		//Print("key : %x\n", *k);
 		switch(*k){
-			case 0x48:
-				string = Get_History_Item(history);
-				strcpy(buf, string);
-				Get_Cursor(&startrow, &startcol);
-				Put_Cursor(startrow, 2);
-			 	Print("%s", buf);
-				(*ptr) = strlen(string);
-				(*n) = strlen(string);
-				cont = true;
-				//n += strlen(string);
-				//continue;
-				break;
-			case 0x50:
-				string = Get_History_Item(history);
-				strcpy(buf, string);
-				Get_Cursor(&startrow, &startcol);
-				Put_Cursor(startrow, 2);
-			 	Print("%s", buf);
-				(*ptr) = strlen(string);
-				(*n) = strlen(string);
-				cont = true;
-				//n += strlen(string);
-				//continue;
-				break;
 			case 0x4b:
-				memcpy(ptr, "left", 4);
+				Get_Cursor(&startrow, &startcol);
+				if(startcol > 2)
+					Put_Cursor(startrow, startcol-1);
+				cont = true;
 				break;
 			case 0x4d:
-				memcpy(ptr, "right", 4);
+				Get_Cursor(&startrow, &startcol);
+				if(startcol <= *n)
+					Put_Cursor(startrow, startcol+1);
+				cont = true;
+				break;
+			case 0x48:
+				string = Get_History_Item(history, UP);
+			case 0x50:
+				if(!string) string = Get_History_Item(history, DOWN);
+				strcpy(buf, string);
+				Clear_Line();
+			 	Print("%s", buf);
+				(*ptr) = buf + strlen(string);
+				(*n) = strlen(string);
+				cont = true;
 				break;
 		}
 	}
