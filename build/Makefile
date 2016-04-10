@@ -105,7 +105,7 @@ GENERATED_LIBC_SRCS := libc/errno.c
 USER_C_SRCS := \
 	workload.c \
 	rec.c \
-	shell.c b.c c.c love.c
+	shell.c b.c c.c
 # User executables
 USER_PROGS := $(USER_C_SRCS:%.c=user/%.exe)
 

@@ -80,7 +80,7 @@ void Read_Line(char* buf, size_t bufSize)
 					   break;
 				   case 0x4d: /* Right */
 					   Get_Cursor(&startrow, &tempcol);
-					   if(tempcol <= n){
+					   if(tempcol <= n + 1){
 					   		Put_Cursor(startrow, tempcol+1);
 					   	}
 					   break;
@@ -151,19 +151,39 @@ void Read_Line(char* buf, size_t bufSize)
 		    continue;
 		}
 
-		if (s_echo)
-		    Put_Char(k);
+		//if (s_echo)
+		//   Put_Char(k);
 
-		if (k == '\n')
+		if (k == '\n'){
 		    done = true;
+		    Put_Char('\n');
+		    break;
+		}
 	
 		if (n < bufSize) {
-		    *ptr++ = k;
-		    ++n;
+			int i;
+			int curcol;
+			Get_Cursor(&startrow, &curcol); 
+		
+			tempcol = curcol - startcol;
+			for(i = n; i >= tempcol ; i--){
+				buf[i+1] = buf[i];
+			}
+		    buf[tempcol] = k;
+
+		    ++ptr;
+		    ++n; 
+		   	Clear_Line();
+			for(i = 0; i < n; i++)
+				Put_Char(buf[i]);
+		   	Put_Cursor(startrow, curcol+1);
+  
+
 		}
     }
     while (!done);
     *ptr = '\0';
+	//Print("command : %c, %c\n", buf[0], buf[1]);
     //Print("command : %s\n", buf);
 }
 
