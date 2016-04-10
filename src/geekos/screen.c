@@ -427,6 +427,7 @@ void Get_Cursor(int* row, int* col)
     *row = s_cons.row;
     *col = s_cons.col;
     End_Int_Atomic(iflag);
+    //Print("cursor : %d, %d\n", *row, *col);
 }
 
 /*

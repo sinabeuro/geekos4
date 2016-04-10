@@ -16,7 +16,6 @@
 #define UP 1
 #define DOWN -1
 
-
 typedef struct History history_t;
 
 typedef struct History {
@@ -28,6 +27,8 @@ typedef struct History {
 	int (*Add_History_Item)(history_t* self, char* command);
 	char* (*Get_History_Item)(history_t* self, int direction);
 }history_t;
+
+extern history_t history;
 
 int Init_History(history_t* self);
 void Print_History(history_t* self);

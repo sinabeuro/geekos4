@@ -29,6 +29,9 @@ int Put_Cursor(int row, int col);
 void Echo(bool enable);
 void Read_Line(char* buf, size_t bufSize);
 
+void Clear_Line(void);
+
+
 const char *Get_Error_String(int errno);
 
 #define assert(exp)						\

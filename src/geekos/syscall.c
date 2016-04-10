@@ -104,8 +104,9 @@ static int Sys_GetCursor(struct Interrupt_State* state)
 {
 	int row, col;
 	Get_Cursor(&row, &col);
-	Copy_To_User(state->ebx, &row, sizeof(int*));
-	Copy_To_User(state->ecx, &col, sizeof(int*));
+	Copy_To_User(state->ebx, &row, sizeof(int));
+	Copy_To_User(state->ecx, &col, sizeof(int));
+
 	return 0;
     //TODO("GetCursor system call");
 }

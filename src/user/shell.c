@@ -23,9 +23,6 @@
 
 #define ISSPACE(c) ((c) == ' ' || (c) == '\t')
 
-#define UP 1
-#define DOWN -1
-
 struct Process {
     int flags;
     char program[BUFSIZE+1];
@@ -43,7 +40,6 @@ char *Copy_Token(char *token, char *s);
 int Build_Pipeline(char *command, struct Process procList[]);
 void Spawn_Single_Command(struct Process procList[], int nproc, const char *path);
 int Process_Arrow_Key(Keycode* k, char* buf, char** ptr, size_t* n, void* arg);
-void Clear_Line(void);
 
 /* Maximum number of processes allowed in a pipeline. */
 #define MAXPROC 5
@@ -69,8 +65,7 @@ int main(int argc, char **argv)
 		Print("\x1B[1;36m$\x1B[37m ");
 
 		/* Read a line of input */
-		Read_Line(commandBuf, sizeof(commandBuf), 
-					Process_Arrow_Key, (void*)&history);		
+		Read_Line(commandBuf, sizeof(commandBuf));		
 		command = Strip_Leading_Whitespace(commandBuf);
 		Trim_Newline(command);
 
@@ -121,19 +116,9 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void Clear_Line(void)
-{
-	int i;
-    int startrow = 0, startcol = 0;
-	Get_Cursor(&startrow, &startcol);
-	Put_Cursor(startrow, 2);
-	for(i = 2; i < 50; i++)
-		Print(" ");
-	Put_Cursor(startrow, 2);
-}
-
 int Process_Arrow_Key(Keycode* k, char* buf, char** ptr, size_t* n, void* arg)
 {
+	#if 0
     int startrow = 0, startcol = 0;
 	history_t* history = (history_t*)arg;
 	char* string = NULL;
@@ -170,6 +155,7 @@ int Process_Arrow_Key(Keycode* k, char* buf, char** ptr, size_t* n, void* arg)
 		}
 	}
 	return cont;
+	#endif
 }
 
 /*

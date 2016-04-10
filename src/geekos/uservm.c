@@ -373,7 +373,7 @@ bool Copy_To_User(ulong_t destInUser, void* srcInKernel, ulong_t numBytes)
 	struct User_Context* userContext = g_currentThread->userContext;
 	
 	memcpy((void*)(USER_BASE_ADRR + destInUser), srcInKernel, numBytes);
-	
+	//Print("%x, %x\n", (USER_BASE_ADRR + destInUser), srcInKernel);
 	return true;
      
     //TODO("Copy kernel data to user buffer");

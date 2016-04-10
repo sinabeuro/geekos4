@@ -20,7 +20,7 @@
 000007c0 a BOOTSEG
 00014303 T bpool
 00013eb5 T brel
-000251e0 B __bss_start
+000251dc B __bss_start
 0001256a T Cancel_Timer
 0001c8a0 T checkPaging
 0001c6f0 T Clear_Bit
@@ -42,7 +42,7 @@
 00019a69 T Create_Request
 0001526c t Create_Thread
 00000050 a CYLINDERS
-000251d4 D debugFaults
+00026484 B debugFaults
 00026480 B debugPFAT
 00026458 B debugVFS
 0001b759 T Delete
@@ -62,7 +62,7 @@
 00010447 t Dummy_Interrupt_Handler
 00016e19 T Dump_All_Thread_List
 000102d8 T Dump_Interrupt_State
-000251e0 D _edata
+000251dc D _edata
 000105bc T Enable_IRQ
 0001d130 T Enable_Paging
 00026f30 B end
@@ -240,8 +240,8 @@
 0001d158 T Get_PDBR
 000124b8 T Get_Remaing_Timer_Ticks
 00025c68 B g_freePageCount
-000251dc D g_handlerSizeErr
-000251d8 D g_handlerSizeNoErr
+000251d8 D g_handlerSizeErr
+000251d4 D g_handlerSizeNoErr
 000264a0 B g_interruptTable
 00026f10 B g_needReschedule
 000206f4 R g_numSyscalls
@@ -445,7 +445,7 @@
 00025c5c b s_spinCountPerTick
 000114f6 t Start_Arg
 0001581e T Start_Kernel_Thread
-00026484 b startSector
+00026488 b startSector
 00012408 T Start_Timer
 00015b21 T Start_User_Thread
 0001b3f6 T Stat
@@ -470,7 +470,7 @@
 00026120 b s_tssSelector
 00026470 b s_vfsLock
 000259e0 b s_waitQueue
-0002648c b swapMap
+00026490 b swapMap
 00017d36 T Switch_To_Address_Space
 0001d210 T Switch_To_Thread
 00017329 T Switch_To_User_Context
@@ -498,7 +498,7 @@
 00016b09 T Tlocal_Create
 00016d63 T Tlocal_Get
 00016caa T Tlocal_Put
-00026488 b totalPage
+0002648c b totalPage
 00021a6d r ucdigits.1467
 00018599 T Unmask_DMA
 0001ac36 t Unpack_Path

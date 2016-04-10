@@ -11,8 +11,13 @@
 #include <fmtout.h>
 #include <string.h>
 #include <conio.h>
+#include <history.h>
+
+#define UP 1
+#define DOWN -1
 
 static bool s_echo = true;
+history_t history;
 
 /* System call wrappers. */
 DEF_SYSCALL(Print_String,SYS_PRINTSTRING,int,(const char *str),
@@ -21,7 +26,6 @@ DEF_SYSCALL(Get_Key,SYS_GETKEY,Keycode,(void),,SYSCALL_REGS_0)
 DEF_SYSCALL(Set_Attr,SYS_SETATTR,int,(int attr),int arg0 = attr;,SYSCALL_REGS_1)
 DEF_SYSCALL(Get_Cursor,SYS_GETCURSOR,int,(int *row, int *col),
     int *arg0 = row; int *arg1 = col;,SYSCALL_REGS_2)
-
 
 int Put_Cursor(int row, int col)
 {
@@ -48,22 +52,52 @@ void Echo(bool enable)
     s_echo = enable;
 }
 
-void Read_Line(char* buf, size_t bufSize, custom_handler ch, void* arg)
+void Read_Line(char* buf, size_t bufSize)
 {
     char *ptr = buf;
     size_t n = 0;
     Keycode k;
     bool done = false;
-    int startrow = 0, startcol = 0;
-    Get_Cursor(&startrow, &startcol);
-    /*Print("Start column is %d\n", startcol); */
+    int startrow = 0, startcol, tempcol = 0;
 
+    Get_Cursor(&startrow, &startcol);
+    
     bufSize--;
     do {
-		k = Get_Key();
-		
-		/* Escaped scancodes */ 
-		if(ch) if(ch(&k, buf, &ptr, &n, arg)) continue;
+		   char* string = NULL;
+
+		   	k = Get_Key();
+		   /* Escaped scancodes */ 
+		   if((k & 0xff) == 0xe0){
+			   k = Get_Key();
+			   //Print("key : %x\n", *k);
+			   switch(k){
+				   case 0x4b: /* Left */
+					   Get_Cursor(&startrow, &tempcol);
+					   if(tempcol > 2){
+						  	Put_Cursor(startrow, tempcol-1);
+						  	}
+					   break;
+				   case 0x4d: /* Right */
+					   Get_Cursor(&startrow, &tempcol);
+					   if(tempcol <= n){
+					   		Put_Cursor(startrow, tempcol+1);
+					   	}
+					   break;
+				   case 0x48:
+					   string = Get_History_Item(&history, UP);
+				   case 0x50:
+					   if(!string) string = Get_History_Item(&history, DOWN);
+					   strcpy(buf, string);
+					   Clear_Line();
+					   Print("%s", buf);
+					   ptr = buf + strlen(string);
+					   n = strlen(string);
+					   break;
+			   }
+			   continue;
+		   }
+
 			
 		if ((k & KEY_SPECIAL_FLAG) || (k & KEY_RELEASE_FLAG))
 		    continue;
@@ -72,22 +106,20 @@ void Read_Line(char* buf, size_t bufSize, custom_handler ch, void* arg)
 		if (k == '\r')
 		    k = '\n';
 
-		if (k == ASCII_BS) {
+		if (k == ASCII_BS) { /* Backspace */
 		    if (n > 0) {
 				char last = *(ptr - 1);
 				int newcol = startcol;
+				Get_Cursor(&startrow, &tempcol); 
+				tempcol -= startcol+1;
 				size_t i;
-
-				/* Back up in line buffer */
-				--ptr;
-				--n;
 
 				if (s_echo) {
 				    /*
 				     * Figure out what the column position of the last
 				     * character was
 				     */
-				    for (i = 0; i < n; ++i) {
+				    for (i = 0; i < tempcol; ++i) {
 						char ch = buf[i];
 						if (ch == '\t') {
 						    int rem = newcol % TABWIDTH;
@@ -100,9 +132,20 @@ void Read_Line(char* buf, size_t bufSize, custom_handler ch, void* arg)
 				    /* Erase last character */
 				    if (last != '\t')
 						last = ' ';
+
+					for(i = tempcol; i <= n; i++)
+						buf[i] = buf[i+1];
+
+					/* Back up in line buffer */
+					--ptr;
+					--n;
+					
+					//Put_Cursor(startrow, startcol);
+					Clear_Line();
+					for(i = 0; i < n; i++)
+				    	Put_Char(buf[i]);
 				    Put_Cursor(startrow, newcol);
-				    Put_Char(last);
-				    Put_Cursor(startrow, newcol);
+				
 				}
 		    }
 		    continue;
@@ -155,5 +198,17 @@ void Print(const char *fmt, ...)
     va_start(args, fmt);
     Format_Output(&s_outputSink, fmt, args);
     va_end(args);
+}
+
+void Clear_Line(void)
+{
+	int i;
+    int startrow, startcol;
+	Get_Cursor(&startrow, &startcol);
+	//Print("clear line :%d, %d\n", startrow, startcol);
+	Put_Cursor(startrow, 2);
+	for(i = 2; i < 50; i++)
+		Put_Char(' '); // caution
+	Put_Cursor(startrow, 2);
 }
 
