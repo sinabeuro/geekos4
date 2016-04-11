@@ -65,6 +65,8 @@ void Read_Line(char* buf, size_t bufSize)
     bufSize--;
     do {
 		   char* string = NULL;
+		   int i;
+		   int newcol;
 
 		   	k = Get_Key();
 		   /* Escaped scancodes */ 
@@ -94,6 +96,18 @@ void Read_Line(char* buf, size_t bufSize)
 					   ptr = buf + strlen(string);
 					   n = strlen(string);
 					   break;
+				   case 0x53:
+			    	   Get_Cursor(&startrow, &newcol); 
+					   tempcol = newcol - startcol;	
+		               for(i = tempcol; i <= n; i++)
+					       buf[i] = buf[i+1];
+					   --ptr;
+					   --n;
+					   Clear_Line();
+					   for(i = 0; i < n; i++)
+						   Put_Char(buf[i]);
+					   Put_Cursor(startrow, newcol);
+				   	   break;
 			   }
 			   continue;
 		   }
@@ -154,10 +168,12 @@ void Read_Line(char* buf, size_t bufSize)
 		//if (s_echo)
 		//   Put_Char(k);
 
+		// need to tab..
 		if (k == '\n'){
 		    done = true;
-		    Put_Char('\n');
-		    break;
+			Put_Cursor(startrow, startcol+n);
+			Put_Char('\n');
+			break;
 		}
 	
 		if (n < bufSize) {
@@ -177,7 +193,6 @@ void Read_Line(char* buf, size_t bufSize)
 			for(i = 0; i < n; i++)
 				Put_Char(buf[i]);
 		   	Put_Cursor(startrow, curcol+1);
-  
 
 		}
     }
