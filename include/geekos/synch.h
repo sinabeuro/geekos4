@@ -29,6 +29,24 @@ struct Condition {
     struct Thread_Queue waitQueue;
 };
 
+/*
+ * semaphore
+ */
+
+DEFINE_LIST(Semaphore_List, Semaphore);
+
+struct Semaphore {
+    ulong_t count;
+    ulong_t sid;
+    char name[25];
+    ulong_t refCount;
+    struct Mutex mutex;
+    struct Condition cond;
+    DEFINE_LINK(Semaphore_List, Semaphore)
+};
+
+IMPLEMENT_LIST(Semaphore_List, Semaphore);
+
 void Mutex_Init(struct Mutex* mutex);
 void Mutex_Lock(struct Mutex* mutex);
 void Mutex_Unlock(struct Mutex* mutex);
@@ -37,6 +55,11 @@ void Cond_Init(struct Condition* cond);
 void Cond_Wait(struct Condition* cond, struct Mutex* mutex);
 void Cond_Signal(struct Condition* cond);
 void Cond_Broadcast(struct Condition* cond);
+
+int Create_Semaphore(char* name, int ival);
+int P(int sid);
+int V(int sid);
+int Destroy_Semaphore(int sid);
 
 #define IS_HELD(mutex) \
     ((mutex)->state == MUTEX_LOCKED && (mutex)->owner == g_currentThread)

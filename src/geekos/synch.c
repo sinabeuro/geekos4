@@ -27,6 +27,120 @@
  * Private functions
  * ---------------------------------------------------------------------- */
 
+static struct Semaphore_List s_semaphoreList;
+	
+int Create_Semaphore(char* name, int ival)
+{
+	struct Semaphore* sema = (&s_semaphoreList)->head;
+	static ulong_t sid = 1;
+	
+	//find sem by sname
+	while (sema != 0)
+	{
+		if (strcmp(sema->name, name) == 0)
+		{
+			//Print("exist sema->name: %s, %d\n", sema->name, sema->sid);
+			return sema->sid;
+		}
+		sema = Get_Next_In_Semaphore_List(sema);
+	}
+
+	//if there is no sem, create sem
+	sema = (struct Semaphore*)Malloc(sizeof(struct Semaphore));
+	sema->sid = sid++;
+	memcpy(sema->name, name, 25);
+	sema->count = ival;
+	//sema->refCount = 1;
+	Mutex_Init(&(sema->mutex));
+	Cond_Init(&(sema->cond));
+	Add_To_Back_Of_Semaphore_List(&s_semaphoreList, sema);
+	//Print("new sema->name: %s, %d\n", sema->name, sema->sid);
+	return sema->sid;
+	
+}
+
+int Destroy_Semaphore(int sid)
+{
+	struct Semaphore* sema = (&s_semaphoreList)->head;
+
+	//find sem by sid
+	while (sema != 0)
+	{
+		if (sema->sid == sid)
+		{
+			Remove_From_Semaphore_List(&s_semaphoreList, sema);
+			Free(sema);
+			return 0;
+		}
+		sema = Get_Next_In_Semaphore_List(sema);
+	}
+	
+	return -1;
+}
+
+int P(int sid)
+{
+	struct Semaphore* sema = (&s_semaphoreList)->head;
+	struct Mutex* mutex;
+	struct Condition* cond;
+
+	//find sem by sid
+	while (sema != 0)
+	{
+		if (sema->sid == sid)
+		{
+			mutex = &(sema->mutex); // important
+			cond = &(sema->cond);
+
+			Enable_Interrupts();
+			Mutex_Lock(mutex);
+			while(sema->count <= 0)
+			{
+				Cond_Wait(cond, mutex);
+				//Print("WAKE UP!");
+			}
+			sema->count--;
+			Mutex_Unlock(mutex);
+			Disable_Interrupts();
+			
+			return 0;
+		}
+		sema = Get_Next_In_Semaphore_List(sema);
+	}
+	
+	return -1;
+}
+
+int V(int sid)
+{
+	struct Semaphore* sema = (&s_semaphoreList)->head;
+	struct Mutex* mutex;
+	struct Condition* cond;
+
+	//find sem by sid
+	while (sema != 0)
+	{
+		if (sema->sid == sid)
+		{
+			mutex = &(sema->mutex);
+			cond = &(sema->cond);
+			
+			Enable_Interrupts();
+			Mutex_Lock(mutex);
+			sema->count = sema->count + 1;
+			//Print("wait queue : %d", cond->waitQueue);
+			Cond_Broadcast(cond);
+			Mutex_Unlock(mutex);
+			Disable_Interrupts();
+			
+			return 0;
+		}
+		sema = Get_Next_In_Semaphore_List(sema);
+	}
+	
+	return -1;
+}
+
 /*
  * The mutex is currently locked.
  * Atomically reenable preemption and wait in the

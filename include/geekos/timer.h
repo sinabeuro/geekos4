@@ -13,6 +13,7 @@
 #define TIMER_IRQ 0
 
 extern volatile ulong_t g_numTicks;
+int g_Quantum;
 
 typedef void (*timerCallback)(int);
 

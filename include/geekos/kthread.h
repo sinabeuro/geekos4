@@ -99,7 +99,10 @@ typedef void (*Thread_Start_Func)(ulong_t arg);
 /*
  * Number of ready queue levels.
  */
-#define MAX_QUEUE_LEVEL 4
+int MAX_QUEUE_LEVEL;
+
+void Switch_To_RR(void);
+void Switch_To_MLF(void);
 
 /*
  * Scheduler operations.

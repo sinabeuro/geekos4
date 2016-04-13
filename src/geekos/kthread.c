@@ -18,6 +18,16 @@
 #include <geekos/malloc.h>
 #include <geekos/user.h> // improtant
 
+// For sched algorithm
+#define RR 0
+#define MLF 1
+
+/*
+ * Number of ready queue levels.
+ */
+int MAX_QUEUE_LEVEL = 4;
+
+
 /* ----------------------------------------------------------------------
  * Private data
  * ---------------------------------------------------------------------- */
@@ -30,7 +40,7 @@ static struct All_Thread_List s_allThreadList;
 /*
  * Run queues.  0 is the highest priority queue.
  */
-static struct Thread_Queue s_runQueue[MAX_QUEUE_LEVEL];
+static struct Thread_Queue s_runQueue[4];
 
 /*
  * Current thread.
@@ -476,6 +486,44 @@ static void Tlocal_Exit(struct Kernel_Thread* curr) {
 /* ----------------------------------------------------------------------
  * Public functions
  * ---------------------------------------------------------------------- */
+void Switch_To_RR(void)
+{
+	struct Kernel_Thread* kthread;
+	int i;
+	for(i = 1; i < MAX_QUEUE_LEVEL; i++)
+	{
+		kthread = (&s_runQueue[i])->head;
+		while (kthread != 0) 
+		{
+			Print("%d pid: %d\n", i, kthread->pid); 
+			kthread->currentReadyQueue = 0;
+			Remove_From_Thread_Queue(&s_runQueue[i],kthread);
+			Add_To_Front_Of_Thread_Queue(&s_runQueue, kthread);
+			kthread = (&s_runQueue[i])->head;
+		}
+	}
+	MAX_QUEUE_LEVEL = 1;
+	//Print("MAX_QUEUE_LEVEL : %d\n", MAX_QUEUE_LEVEL); 
+}
+
+void Switch_To_MLF(void)
+{
+	struct Kernel_Thread *kthread;
+	kthread = s_runQueue->head;
+
+	// Transition to MLF
+	MAX_QUEUE_LEVEL = 4;
+	
+	while (kthread != 0) {
+		if (kthread->priority == PRIORITY_IDLE)
+		{
+			Remove_From_Thread_Queue(&s_runQueue ,kthread);
+			Add_To_Front_Of_Thread_Queue(&s_runQueue[MAX_QUEUE_LEVEL-1], kthread);
+			kthread->currentReadyQueue = MAX_QUEUE_LEVEL-1;
+		}
+		kthread = Get_Next_In_Thread_Queue(kthread);
+	}
+}
 
 void Init_Scheduler(void)
 {

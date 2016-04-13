@@ -90,7 +90,8 @@ static int Sys_GetKey(struct Interrupt_State* state)
  */
 static int Sys_SetAttr(struct Interrupt_State* state)
 {
-    TODO("SetAttr system call");
+	Set_Current_Attr(state->ebx);
+    //TODO("SetAttr system call");
 }
 
 /*
@@ -188,7 +189,24 @@ static int Sys_GetPID(struct Interrupt_State* state)
  */
 static int Sys_SetSchedulingPolicy(struct Interrupt_State* state)
 {
-    TODO("SetSchedulingPolicy system call");
+	g_Quantum = state->ecx;
+
+	// MLF -> RR
+	if(state->ebx == 0)
+	{
+    	Switch_To_RR();
+    	return 0;
+	}
+   	// RR -> MLF
+    else if(state->ebx == 1)
+    {
+		Switch_To_MLF();
+		return 0;
+	}
+    else 
+    	return -1;
+
+   //TODO("SetSchedulingPolicy system call");
 }
 
 /*
@@ -200,7 +218,8 @@ static int Sys_SetSchedulingPolicy(struct Interrupt_State* state)
  */
 static int Sys_GetTimeOfDay(struct Interrupt_State* state)
 {
-    TODO("GetTimeOfDay system call");
+    return g_numTicks;
+    //TODO("GetTimeOfDay system call");
 }
 
 /*
@@ -213,7 +232,10 @@ static int Sys_GetTimeOfDay(struct Interrupt_State* state)
  */
 static int Sys_CreateSemaphore(struct Interrupt_State* state)
 {
-    TODO("CreateSemaphore system call");
+	char name[25];
+	Copy_From_User(name, state->ebx, state->ecx);
+	return Create_Semaphore(name, state->edx);   
+    //TODO("CreateSemaphore system call");
 }
 
 /*
@@ -227,7 +249,8 @@ static int Sys_CreateSemaphore(struct Interrupt_State* state)
  */
 static int Sys_P(struct Interrupt_State* state)
 {
-    TODO("P (semaphore acquire) system call");
+	return P(state->ebx);
+    //TODO("P (semaphore acquire) system call");
 }
 
 /*
@@ -239,7 +262,8 @@ static int Sys_P(struct Interrupt_State* state)
  */
 static int Sys_V(struct Interrupt_State* state)
 {
-    TODO("V (semaphore release) system call");
+	return V(state->ebx);
+    //TODO("V (semaphore release) system call");
 }
 
 /*
@@ -251,6 +275,7 @@ static int Sys_V(struct Interrupt_State* state)
  */
 static int Sys_DestroySemaphore(struct Interrupt_State* state)
 {
+	return Destroy_Semaphore(state->ebx);
     TODO("DestroySemaphore system call");
 }
 
