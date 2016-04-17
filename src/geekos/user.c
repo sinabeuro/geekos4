@@ -18,7 +18,7 @@
 #include <geekos/tss.h>
 #include <geekos/user.h>
 
-static int userdebug = 1;
+static int userdebug = 0;
 /*
  * This module contains common functions for implementation of user
  * mode processes.

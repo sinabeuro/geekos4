@@ -488,6 +488,8 @@ static void Tlocal_Exit(struct Kernel_Thread* curr) {
  * ---------------------------------------------------------------------- */
 void Switch_To_RR(void)
 {
+	KASSERT(!Interrupts_Enabled());
+
 	struct Kernel_Thread* kthread;
 	int i;
 	for(i = 1; i < MAX_QUEUE_LEVEL; i++)
@@ -508,7 +510,11 @@ void Switch_To_RR(void)
 
 void Switch_To_MLF(void)
 {
+	KASSERT(!Interrupts_Enabled());
+
 	struct Kernel_Thread *kthread;
+	struct Kernel_Thread *temp;
+	
 	kthread = s_runQueue->head;
 
 	// Transition to MLF
@@ -517,11 +523,14 @@ void Switch_To_MLF(void)
 	while (kthread != 0) {
 		if (kthread->priority == PRIORITY_IDLE)
 		{
+			temp = Get_Next_In_Thread_Queue(kthread);
 			Remove_From_Thread_Queue(&s_runQueue ,kthread);
 			Add_To_Front_Of_Thread_Queue(&s_runQueue[MAX_QUEUE_LEVEL-1], kthread);
 			kthread->currentReadyQueue = MAX_QUEUE_LEVEL-1;
+			kthread = temp;
 		}
-		kthread = Get_Next_In_Thread_Queue(kthread);
+		else
+			kthread = Get_Next_In_Thread_Queue(kthread);
 	}
 }
 
@@ -626,23 +635,26 @@ Start_User_Thread(struct User_Context* userContext, bool detached)
  */
 void Make_Runnable(struct Kernel_Thread* kthread)
 {
-    KASSERT(!Interrupts_Enabled());
-
-    { int currentQ = kthread->currentReadyQueue;
-      KASSERT(currentQ >= 0 && currentQ < MAX_QUEUE_LEVEL);
-
-	  /* If the process is blocked, the priority level will increase by one level */
-      if(kthread->blocked == true && currentQ > 0)
-      	kthread->currentReadyQueue--;
-
-	  /* Prevent to idle process move out queue */
-	  if(kthread->priority == PRIORITY_IDLE)
-	  	kthread->currentReadyQueue = MAX_QUEUE_LEVEL - 1 ;
-        	
-      kthread->blocked = false;
-      Enqueue_Thread(&s_runQueue[kthread->currentReadyQueue], kthread);
-    }
-
+		KASSERT(!Interrupts_Enabled());
+	
+		int currentQ = kthread->currentReadyQueue;
+		if(currentQ >= MAX_QUEUE_LEVEL){ // mlf waiting que -> rr
+			//Print("currentQ %d, %d\n", kthread->pid, currentQ);
+			currentQ = kthread->currentReadyQueue = MAX_QUEUE_LEVEL -1;
+		}
+		KASSERT((currentQ >= 0) && (currentQ < MAX_QUEUE_LEVEL));
+	
+		/* If the process is blocked, the priority level will increase by one level */
+		if((kthread->blocked == true) && (currentQ > 0))
+			kthread->currentReadyQueue--;
+	
+		/* Prevent to idle process move out queue */
+		if(kthread->priority == PRIORITY_IDLE)
+			kthread->currentReadyQueue = MAX_QUEUE_LEVEL - 1 ;
+			
+		kthread->blocked = false;
+		Enqueue_Thread(&s_runQueue[kthread->currentReadyQueue], kthread);
+		
 }
 
 /*

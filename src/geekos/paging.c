@@ -26,6 +26,7 @@
 /* ----------------------------------------------------------------------
  * Public data
  * ---------------------------------------------------------------------- */
+extern int sh_pid;
 
 /* ----------------------------------------------------------------------
  * Private functions/data
@@ -125,7 +126,11 @@ static void Print_Fault_Info(uint_t address, faultcode_t faultCode)
 		k = PAGE_TABLE_INDEX(address);
 		kernelInfo = pte[k].kernelInfo;
 		paddr = Alloc_Pageable_Page(&pte[k], PAGE_ADDR(address));
-
+		if(paddr == 0){
+			if(g_currentThread->pid != sh_pid)
+				Exit(-1);
+		}
+	
 		if(kernelInfo == KINFO_PAGE_ON_DISK) // case 2
 		{
 			Print ("KINFO_PAGE_ON_DISK\n");
@@ -185,7 +190,7 @@ void Init_VM(struct Boot_Info *bootInfo)
 		pde[i].pageTableBaseAddr = (uint_t)PAGE_ALLIGNED_ADDR(pte);
 		pde[i].present = 1;
 		pde[i].flags = VM_WRITE;
-		Print ("pde : %x\n", &pde[i]);
+		//Print ("pde : %x\n", &pde[i]);
 
 		for(j=0; j < NUM_PAGE_TABLE_ENTRIES; j++) {
 			pageList[i][j].entry = &pte[j]; // ...

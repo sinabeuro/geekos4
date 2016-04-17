@@ -46,7 +46,7 @@
 
 #define INIT_PROGRAM "/" ROOT_PREFIX "/shell.exe"
 
-
+int sh_pid;
 
 static void Mount_Root_Filesystem(void);
 static void Spawn_Init_Process(void);
@@ -80,16 +80,11 @@ void Main(struct Boot_Info* bootInfo)
     Print("Welcome to GeekOS!\n");
     Set_Current_Attr(ATTRIB(BLACK, GRAY));
 
-
-
-
     Spawn_Init_Process();
 
     /* Now this thread is done. */
     Exit(0);
 }
-
-
 
 static void Mount_Root_Filesystem(void)
 {
@@ -101,17 +96,12 @@ static void Mount_Root_Filesystem(void)
     Init_Paging();
 }
 
-
-
-
-
-
 static void Spawn_Init_Process(void)
 {
-	const char *program = "/c/shell.exe";
 	const char *command = "shell.exe";
 	struct Kernel_Thread **pThread;
+	sh_pid = Spawn(INIT_PROGRAM, command, pThread);
 
-  	Join(Lookup_Thread(Spawn(program, command, pThread)));
+  	Join(Lookup_Thread(sh_pid));
     //TODO("Spawn the init process");
 }

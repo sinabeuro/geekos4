@@ -99,8 +99,8 @@ static void Timer_Interrupt_Handler(struct Interrupt_State* state)
 	 * since it consumed a full quantum.
 	 */
         if (current->currentReadyQueue < (MAX_QUEUE_LEVEL - 1)) {
-            /*Print("process %d moved to ready queue %d\n", current->pid, current->currentReadyQueue); */
             current->currentReadyQueue++;
+            Print("process %d moved to ready queue %d\n", current->pid, current->currentReadyQueue); 
         }
 
     }

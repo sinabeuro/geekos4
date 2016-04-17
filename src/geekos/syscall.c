@@ -142,8 +142,8 @@ static int Sys_Spawn(struct Interrupt_State* state)
 	Copy_From_User(program, state->ebx, state->ecx);
 	Copy_From_User(command, state->edx, state->esi);
 	
-	Print("%s\n", program);
-	Print("%s\n", command);
+	//Print("%s\n", program);
+	//Print("%s\n", command);
 	Enable_Interrupts();
 	pid = Spawn(program, command, pThread);
 	Disable_Interrupts();

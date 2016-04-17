@@ -263,9 +263,12 @@ void* Alloc_Pageable_Page(pte_t *entry, ulong_t vaddr)
 
 		/* Find a place on disk for it */
 		pagefileIndex = Find_Space_On_Paging_File();
-		if (pagefileIndex < 0)
+		if (pagefileIndex < 0){
 		    /* No space available in paging file. */
+			Debug("No space available in paging file\n");
+			paddr = 0;
 		    goto done;
+		}
 		Debug("Free disk page at index %d\n", pagefileIndex);
 
 		/* Make the page temporarily unpageable (can't let another process steal it) */
